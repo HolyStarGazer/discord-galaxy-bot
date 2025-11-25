@@ -1,0 +1,12 @@
+# Tells Git what files or directories to ignore in a project
+# Environment variables file
+.env
+
+# Dependency directories
+node_modules/
+
+# Log files
+*.db
+
+# macOS specific file
+.DS_Store # 
