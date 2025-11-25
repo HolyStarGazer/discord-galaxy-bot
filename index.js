@@ -1,5 +1,6 @@
 require('dotenv').config();                                     // Load environment variables from .env file
 const { Client, GatewayIntentBits, Collection } = require('discord.js');    // Import necessary classes from discord.js
+const { dbHelpers } = require('./config/database'); 
 const fs = require('fs');                                       // File system module for reading command files
 const path = require('path');
 
@@ -77,12 +78,12 @@ client.on('interactionCreate', async interaction => {
         if (interaction.replied || interaction.deferred) {
             await interaction.followUp({
                 content: 'There was an error while executing this command!',
-                ephemeral: true
+                ephemeral: MessageFlags.ephemeral
             });
         } else {
             await interaction.reply({
                 content: 'There was an error while executing this command!',
-                ephemeral: true
+                ephemeral: MessageFlags.ephemeral
             });
         }
     }
@@ -90,3 +91,40 @@ client.on('interactionCreate', async interaction => {
 
 // Login to Discord
 client.login(process.env.DISCORD_BOT_TOKEN);
+
+// XP gain on messages
+client.on('messageCreate', async message => {
+    // Ignore bot messages
+    if (message.author.bot) return;
+
+    // Ignore DMs
+    if (!message.guild) return;
+
+    // Get user data
+    const userData = dbHelpers.getOrCreateUser(message.author.id, message.author.username);
+
+    // Check cooldown (1 minute between XP gains to prevent spam)
+    const currentTime = Math.floor(Date.now() / 1000);
+    const cooldownTime = 60; // seconds
+
+    if (currentTime - userData.last_xp_gain < cooldownTime) return;
+
+    // Calculate XP gain (random between 15-25)
+    const xpGain = Math.floor(Math.random() * 11) + 15;
+
+    // Add XP
+    const result = dbHelpers.addXP(message.author.id, message.author.username, xpGain);
+
+    // Send level up message if user leveled up
+    if (result.leveledUp) {
+        const levelUpMessages = [
+            `🎉 Congrats ${message.author}, you've reached level ${result.newLevel}! Keep it up!`,
+            `🚀 Awesome ${message.author}! You've leveled up to ${result.newLevel}!`,
+            `🔥 ${message.author}, you're now level ${result.newLevel}! Amazing progress!`
+        ];
+
+        const randomMessage = levelUpMessages[Math.floor(Math.random() * levelUpMessages.length)];
+
+        message.channel.send(randomMessage).catch(() => {});
+    }
+});
