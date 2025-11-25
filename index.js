@@ -1,5 +1,5 @@
 require('dotenv').config();                                     // Load environment variables from .env file
-const { Client, GatewayIntentBits, Collection } = require('discord.js');    // Import necessary classes from discord.js
+const { Client, GatewayIntentBits, Collection, MessageFlags } = require('discord.js');    // Import necessary classes from discord.js
 const { dbHelpers } = require('./config/database'); 
 const fs = require('fs');                                       // File system module for reading command files
 const path = require('path');
@@ -51,7 +51,7 @@ if (fs.existsSync(commandsPath)) {
 }
 
 // Bot ready event
-client.once('ready', () => {
+client.once('clientReady', () => {
     console.log(`✅ Bot is online as ${client.user.tag}!`);
     console.log(`📊 Loaded ${client.commands.size} command(s)`);
 });
@@ -78,12 +78,12 @@ client.on('interactionCreate', async interaction => {
         if (interaction.replied || interaction.deferred) {
             await interaction.followUp({
                 content: 'There was an error while executing this command!',
-                ephemeral: MessageFlags.ephemeral
+                ephemeral: MessageFlags.Ephemeral
             });
         } else {
             await interaction.reply({
                 content: 'There was an error while executing this command!',
-                ephemeral: MessageFlags.ephemeral
+                ephemeral: MessageFlags.Ephemeral
             });
         }
     }

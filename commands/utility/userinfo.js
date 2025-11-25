@@ -10,9 +10,6 @@ module.exports = {
                 .setRequired(false)),
 
     async execute(interaction) {
-        // Defer reply to allow more time for processing (buys 15 minutes)
-        await interaction.deferReply();
-
         // Get the target user (defaults to command user if not specified)
         const user = interaction.options.getUser('user') || interaction.user;
         const member = interaction.guild.members.cache.get(user.id);
@@ -62,7 +59,7 @@ module.exports = {
                     inline: true
                 }
             )
-            .setFooter({ text: `Requested by ${message.author.tag}`, iconURL: message.author.displayAvatarURL({ dynamic: true }) })
+            .setFooter({ text: `Requested by ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
             .setTimestamp();
 
         // If user has roles, add them (excluding @everyone)
@@ -80,6 +77,6 @@ module.exports = {
         }
 
         // Send the embed as a reply
-        await message.reply({ embeds: [embed] });
+        await interaction.reply({ embeds: [embed] });
     }
 };
