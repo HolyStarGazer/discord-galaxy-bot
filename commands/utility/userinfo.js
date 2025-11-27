@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -18,7 +18,7 @@ module.exports = {
         if (!member) {
             return interaction.reply({
                 content: 'Could not find that user in this server.',
-                ephemeral: true // Only visible to the command user
+                ephemeral: MessageFlags.Ephemeral // Only visible to the command user
             })
         }
 

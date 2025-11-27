@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, Embed } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { dbHelpers } = require('../../config/database');
 
 module.exports = {
@@ -35,7 +35,7 @@ module.exports = {
                 .setFooter({ text : 'Come back tomorrow for more XP!' })
                 .setTimestamp();
             
-            return interaction.reply({ embeds: [embed], ephemeral: true });
+            return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
 
         // Calculate daily reward

@@ -205,6 +205,35 @@ const dbHelpers = {
         });
 
         return transaction();
+    },
+
+    /**
+     * Health check - verify database is working
+     */
+    healthCheck() {
+        try {
+            // Test basic query
+            const test = db.prepare('SELECT 1 as test').get();
+
+            // Check tables exist
+            const tables = db.prepare(`
+                SELECT name FROM sqlite_master
+                WHERE type='table' AND name IN ('users', 'game_sessions')
+            `).all();
+
+            return {
+                connected: test && test.test === 1,
+                tables: tables.map(t => t.name),
+                healthy: tables.length === 2
+            }
+        } catch (error) {
+            return {
+                connected: false,
+                tables: [],
+                healthy: false,
+                error: error.message
+            }
+        } 
     }
 };
 

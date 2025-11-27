@@ -286,4 +286,4 @@ This project is licensed under the MIT License - feel free to use and modify as 
 ---
 
 **Status**: In active development
-**Current Version**: 0.2.0 (Alpha)
+**Current Version**: 0.2.2 (Alpha)
