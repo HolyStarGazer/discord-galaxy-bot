@@ -18,13 +18,16 @@ A feature-rich Discord bot built with discord.js featuring user interaction comm
 **Leveling Commands**
 
 - `/daily` - Claim daily XP rewards (100-150 XP every 24 hours)
-- `/leaderboard [limit]` - View the server's top user by XP
+- `/leaderboard [limit]` - View the server's top users by XP
 - `/level [user]` - Check you or another user's level, XP, rank, and progress
 **Passive Features**
 
 - Automatic XP gain on messages (15-25 XP per message, 60s cooldown)
 - Level-up notification with celebratory messages
 - XP progress tracking with visual progress bars
+- Professional startup banner with ASCII art
+- Color-coded console logging with timestamps
+- Database health check on startup
 
 ### Planned Features
 - Blackjack (vs AI or another player)
@@ -281,9 +284,11 @@ This project is licensed under the MIT License - feel free to use and modify as 
 ## Acknowledgements
 
 - Built with [discord.js](https://discord.js.org/)
+- Database powered by better-sqlite3
 - Inspired by community Discord bots
 
 ---
 
 **Status**: In active development
-**Current Version**: 0.2.2 (Alpha)
+**Current Version**: 0.2.3 (Alpha)
+**Last Updated**: November 2024
