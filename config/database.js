@@ -1,16 +1,46 @@
 const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
+
+// Ensure data directory exists
+const dataDir = path.join(__dirname, '..', 'data');
+if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+    console.log('Created data directory');
+}
 
 // Create or open the database
 const dbPath = path.join(__dirname, '..', 'data', 'bot.db');
+const dbExists = fs.existsSync(dbPath);
 const db = new Database(dbPath);
 
 // Enable foreign keys
 db.pragma('foreign_keys = ON');
 
+// Get current database version
+function getDatabaseVersion() {
+    try {
+        const result = db.prepare('PRAGMA user_version').get();
+        return result.user_version;
+    } catch (error) {
+        return 0;
+    }
+}
+
+// Set database version
+function setDatabaseVersion(version) {
+    db.pragma(`user_version = ${version}`);
+}
+
 // Initialize tables
 function initDatabase() {
-    console.log('Initializing database...');
+    const currentVersion = getDatabaseVersion();
+
+    if (!dbExists) {
+        console.log('Creating new database...');
+    } else {
+        console.log('Opening existing database...');
+    }
 
     // User table - stores XP and level data
     db.exec(`
@@ -40,6 +70,9 @@ function initDatabase() {
         )
     `);
 
+    // Run migrations if needed
+    runMigrations(currentVersion);
+
     // Leaderboard view for easy querying
     db.exec(`
         CREATE VIEW IF NOT EXISTS leaderboard AS
@@ -55,6 +88,43 @@ function initDatabase() {
     `);
 
     console.log('✅ Database initialized successfully.');
+}
+
+// Run database migrations
+function runMigrations(currentVersion) {
+    const migrations = [
+        {
+            version: 1,
+            description: 'Add last_daily_claim column',
+            run: () => {
+                // Check if column exists
+                const columns = db.prepare("PRAGMA table_info(users)").all();
+                const hasColumn = columns.some(col => col.name === 'last_daily_claim');
+
+                if (!hasColumn) {
+                    console.log('  -> Adding last_daily_claim column...');
+                    db.exec('ALTER TABLE users ADD COLUMN last_daily_claim INTEGER DEFAULT 0');
+                }
+            }
+        },
+        // Add future migrations here with version 2, 3, etc.
+    ];
+
+    // Run migrations that haven't been applied yet
+    migrations.forEach(migration => {
+        if (currentVersion < migration.version) {
+            if (currentVersion < migration.version) {
+                console.log(`Running migration ${migration.version}: ${migration.description}`);
+                try {
+                    migration.run();
+                    setDatabaseVersion(migration.version);
+                    console.log(`  -> Migration ${migration.version} applied successfully.`);
+                } catch (error) {
+                    console.error(`  -> Migration ${migration.version} failed:`, error.message);
+                }
+            }
+        }
+    });
 }
 
 // Initialize database on import

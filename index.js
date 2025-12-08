@@ -1,6 +1,7 @@
 require('dotenv').config();                                     // Load environment variables from .env file
 const { Client, GatewayIntentBits, Collection, MessageFlags } = require('discord.js');    // Import necessary classes from discord.js
 const { dbHelpers } = require('./config/database'); 
+const { version } = require('./package.json');  // ← Add this
 const fs = require('fs');                                       // File system module for reading command files
 const path = require('path');
 
@@ -59,21 +60,6 @@ function loadCommands(dir, depth = 0) {
     }
 }
 
-function formatCommandLine(status, name, message = '', nameWidth = 25, msgWidth = 30) {
-    const statusColor = {
-        'LOADED'    : '\x1b[32m',   // Green
-        'SKIP'      : '\x1b[33m',   // Yellow
-        'ERROR'     : '\x1b[31m',   // Red
-        'DIR'       : '\x1b[34m'    // Blue
-    };
-
-    const color = statusColor[status] || '';
-    const reset = '\x1b[0m';
-    const statusText = '[' + status + ']';
-
-    return `      ${color}${statusText.padEnd(8)}${reset} ${name.padEnd(nameWidth)} ${message.padEnd(msgWidth)}`;
-}
-
 function formatRow(label, value, color = '') {
    const valueStr = String(value);
    
@@ -89,19 +75,23 @@ function formatRow(label, value, color = '') {
 }
 
 function displayBanner() {
+    // Banner version text
+    const versionText = `Discord Bot - Version ${version} Alpha`;
+    const paddedVersionText = versionText.padStart((65 + versionText.length) / 2).padEnd(65);
+    
     console.clear();
     console.log('\x1b[36m'); // Cyan color
     console.log(`
-    ╔═══════════════════════════════════════════════════════════════════════╗
-    ║       ┌───┐                                                           ║
-    ║       │   │          ██████   █████  ██      █████  ██   ██ ██    ██  ║
-    ║      _/\\_/\\_        ██       ██   ██ ██     ██   ██  ██ ██   ██  ██   ║
-    ║      ( ^.^ )        ██   ███ ███████ ██     ███████   ███     ████    ║
-    ║       > ^ <         ██    ██ ██   ██ ██     ██   ██  ██ ██     ██     ║
-    ║      /|   |\\         ██████  ██   ██ ██████ ██   ██ ██   ██    ██     ║
-    ║     (_|   |_)                                                         ║
-    ║                      Discord Bot - Version 0.2.3 Alpha                ║
-    ╚═══════════════════════════════════════════════════════════════════════╝
+    ╔═════════════════════════════════════════════════════════════════╗
+    ║    ┌───┐                                                        ║
+    ║    │   │       ██████   █████  ██      █████  ██   ██ ██    ██  ║
+    ║   _/\\_/\\_     ██       ██   ██ ██     ██   ██  ██ ██   ██  ██   ║
+    ║   ( ^.^ )     ██   ███ ███████ ██     ███████   ███     ████    ║
+    ║    > ^ <      ██    ██ ██   ██ ██     ██   ██  ██ ██     ██     ║
+    ║   /|   |\\      ██████  ██   ██ ██████ ██   ██ ██   ██    ██     ║
+    ║  (_|   |_)                                                      ║
+    ║${paddedVersionText}║
+    ╚═════════════════════════════════════════════════════════════════╝
     `);
     console.log('\x1b[0m'); // Reset color
 }

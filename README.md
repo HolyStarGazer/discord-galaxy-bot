@@ -1,5 +1,10 @@
 # Galaxy Discord Bot
 
+![Version](https://img.shields.io/badge/version-0.3.0-blue)
+![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)
+![Discord.js](https://img.shields.io/badge/discord.js-v14-5865F2)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 A feature-rich Discord bot built with discord.js featuring user interaction commands, dice rolling, and a player leveling system with games
 
 ## Features
@@ -20,6 +25,7 @@ A feature-rich Discord bot built with discord.js featuring user interaction comm
 - `/daily` - Claim daily XP rewards (100-150 XP every 24 hours)
 - `/leaderboard [limit]` - View the server's top users by XP
 - `/level [user]` - Check you or another user's level, XP, rank, and progress
+
 **Passive Features**
 
 - Automatic XP gain on messages (15-25 XP per message, 60s cooldown)
@@ -34,6 +40,7 @@ A feature-rich Discord bot built with discord.js featuring user interaction comm
 - Tic-tac-toe (vs AI or another player)
 - Achievement system
 - Economy system with virtual currency
+- Level-up rewards and role assignments
 - And more!
 
 ## Tech Stack
@@ -73,7 +80,7 @@ discord-galaxy-bot/
 ## Setup
 
 ### Prerequisites
-- Node.js (v16.9.0 or higher)
+- Node.js (Version: 0.3.0 or higher)
 - A discord bot token from [Discord Developer Portal](https://discord.com/developers/applications)
 
 ### Installation
@@ -101,12 +108,17 @@ DISCORD_GUILD_ID=your_server_id_here
 mkdir data
 ```
 
-5. Deploy slash commands to Discord:
+5. Initialize the database
+```bash 
+node config/database.js
+```
+
+6. Deploy slash commands to Discord:
 ```bash
 node deploy-commands.js
 ```
 
-6. Start the bot:
+7. Start the bot:
 ```bash
 node index.js
 ```
@@ -290,5 +302,3 @@ This project is licensed under the MIT License - feel free to use and modify as 
 ---
 
 **Status**: In active development
-**Current Version**: 0.2.3 (Alpha)
-**Last Updated**: November 2024

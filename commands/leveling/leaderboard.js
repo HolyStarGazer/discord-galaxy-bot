@@ -1,14 +1,14 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags, Message } = require('discord.js');
 const { dbHelpers } = require('../../config/database');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('leaderboard')
-        .setDescription('View teh server XP leaderboard')
+        .setDescription('View the server XP leaderboard')
         .addIntegerOption(option =>
             option.setName('limit')
                 .setDescription('Number of users to show')
-                .setMinValue(5)
+                .setMinValue(3)
                 .setMaxValue(25)
                 .setRequired(false)),
 
@@ -21,31 +21,87 @@ module.exports = {
         if (leaderboard.length === 0) {
             return interaction.reply({
                 content: 'No users have gained XP yet! Start chatting to appear on the leaderboard!',
-                ephemeral: true
+                ephemeral: MessageFlags.Ephemeral
             });
         }
 
-        // Format leaderboard
-        const leaderboardText = leaderboard.map((user, index) => {
-            const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `**#${index + 1}**`;
-            return `${medal} **${user.username}** - Level ${user.level} (${user.xp} XP)`;
+        // Build three separate columns
+        const rankColumn = leaderboard.map((user, index) => {
+            return String(index + 1);
         }).join('\n');
-
-        // Find user's rank if not in top list
+        
+        const userColumn = leaderboard.map((user) => {
+            return user.username.toLowerCase().substring(0, 24);
+        }).join('\n');
+        
+        const statsColumn = leaderboard.map((user) => {
+            // Align: level (3 chars), xp (7 chars), messages (8 chars)
+            const level = String(user.level).padEnd(3, ' ');
+            const xp = String(user.xp).padEnd(7, ' ');
+            const msgs = String(user.total_messages);
+            return `${level} ${xp} ${msgs}`;
+        }).join('\n');
+        
+        // Find user's rank
         const userRank = dbHelpers.getUserRank(interaction.user.id);
-        let userPosition = '';
-
-        if (userRank && userRank > limit) {
-            const userData = dbHelpers.getOrCreateUser(interaction.user.id, interaction.user.username);
-            userPosition = `\n\n**Your Rank:** #${userRank} - Level ${userData.level} (${userData.xp} XP)`;
-        };
-
+        const userData = dbHelpers.getOrCreateUser(interaction.user.id, interaction.user.username);
+        
         const embed = new EmbedBuilder()
             .setColor('#FFD700')
-            .setTitle(`🏆 ${interaction.guild.name} Leaderboard`)
-            .setDescription(leaderboardText + userPosition)
-            .setFooter({ text: `Showing top ${leaderboard.length} users`})
+            .setTitle(`${interaction.guild.name} Leaderboard`)
+            .addFields(
+                { 
+                    name: 'Rank', 
+                    value: `\`\`\`\n${rankColumn}\n\`\`\``, 
+                    inline: true 
+                },
+                { 
+                    name: 'Username', 
+                    value: `\`\`\`\n${userColumn}\n\`\`\``, 
+                    inline: true 
+                },
+                { 
+                    name: 'Level⠀XP⠀⠀⠀⠀⠀Messages', 
+                    value: `\`\`\`\n${statsColumn}\n\`\`\``, 
+                    inline: true 
+                }
+            )
             .setTimestamp();
+        
+        // Add user's position if they're not in the top list
+        if (userRank && userRank > limit) {
+            const userLevel = String(userData.level).padEnd(3, ' ');
+            const userXp = String(userData.xp).padEnd(7, ' ');
+            const userMsgs = String(userData.total_messages);
+            
+            embed.addFields(
+                { 
+                    name: '\u200B', // Zero-width space for visual separator
+                    value: '\u200B',
+                    inline: false 
+                },
+                { 
+                    name: 'Rank', 
+                    value: `\`\`\`\n${userRank}\n\`\`\``, 
+                    inline: true 
+                },
+                { 
+                    name: 'Username', 
+                    value: `\`\`\`\n${userData.username.toLowerCase().substring(0, 24)}\n\`\`\``, 
+                    inline: true 
+                },
+                { 
+                    name: 'Level⠀XP⠀⠀⠀⠀⠀Messages', 
+                    value: `\`\`\`\n${userLevel} ${userXp} ${userMsgs}\n\`\`\``, 
+                    inline: true 
+                }
+            );
+        }
+        
+        // Set footer
+        embed.setFooter({
+            text: `Showing top ${leaderboard.length} users}`
+        });
 
         await interaction.reply({ embeds: [embed] });
     }

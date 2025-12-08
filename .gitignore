@@ -1,12 +1,43 @@
 # Tells Git what files or directories to ignore in a project
 # Environment variables file
 .env
+.env.local
+.env.*.local
 
 # Dependency directories
 node_modules/
 
-# Log files
+# Database files
 *.db
+*.sqlite
+*.sqlite3
+data/
 
-# macOS specific file
-.DS_Store # 
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Operating System files
+.DS_Store       # macOS
+Thumbs.db       # Windows
+desktop.ini     # Windows
+
+# IDE/Editor files
+.vscode/        # VS Code settings
+.idea/          # JetBrains IDEs
+*.swp           # Vim 
+*.swo           # Vim 
+*~              # Emacs
+
+# Temporary files
+*.tmp
+*.temp
+
+# Shell scripts
+*.sh
+
+# Scripts
+scripts/
