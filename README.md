@@ -207,7 +207,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ### Database errors?
 - Database auto-creates on first run
 - Migrations run automatically
-- See [DATABASE_GUIDE.md](DATABASE_GUIDE.md)
+- See [DATABASE_GUIDE.md](docs/guides/DATABASE_GUIDE.md)
 
 ### Bot not responding?
 - Check bot has `MessageContent` intent enabled
