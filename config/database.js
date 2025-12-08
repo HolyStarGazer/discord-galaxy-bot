@@ -6,7 +6,7 @@ const fs = require('fs');
 const dataDir = path.join(__dirname, '..', 'data');
 if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
-    console.log('Created data directory');
+    console.log('✅ Created data directory');
 }
 
 // Create or open the database
@@ -37,9 +37,9 @@ function initDatabase() {
     const currentVersion = getDatabaseVersion();
 
     if (!dbExists) {
-        console.log('Creating new database...');
+        console.log('📦 Creating new database...');
     } else {
-        console.log('Opening existing database...');
+        console.log('📦 Opening existing database...');
     }
 
     // User table - stores XP and level data
@@ -114,13 +114,13 @@ function runMigrations(currentVersion) {
     migrations.forEach(migration => {
         if (currentVersion < migration.version) {
             if (currentVersion < migration.version) {
-                console.log(`Running migration ${migration.version}: ${migration.description}`);
+                console.log(`📝 Running migration ${migration.version}: ${migration.description}`);
                 try {
                     migration.run();
                     setDatabaseVersion(migration.version);
-                    console.log(`  -> Migration ${migration.version} applied successfully.`);
+                    console.log(`  ✅ Migration ${migration.version} applied successfully.`);
                 } catch (error) {
-                    console.error(`  -> Migration ${migration.version} failed:`, error.message);
+                    console.error(`  ❌  Migration ${migration.version} failed:`, error.message);
                 }
             }
         }
