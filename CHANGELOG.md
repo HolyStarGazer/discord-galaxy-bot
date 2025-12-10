@@ -16,6 +16,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.4.0] - 2025-12-09
+
+### Added
+- **Admin XP Management Commands**
+    - `/addxp` - Add or remove XP from users
+        - Supports positive and negative values
+        - Automatic level recalculation
+        - Optional reason field ffor audit trail
+        - Cannot modify bot accounts
+    - `/setlevel` - Set user level directly
+        - Range limited to 0-100
+        - Automatically calculates required XP
+        - Shows XP needed for next level
+        - Optional reason field
+    - `/setxp` - Set user XP directly
+        - Minimal value of 0
+        - Automatic level recalculation
+        - Shows XP needed for next level
+        - Optional reason field
+
+- **Admin Command Features**
+    - Administrator permission requried (commands invisible to non-admins)
+    - Rich embed responses with before/after stats
+    - Console logging for all admin actions
+    - Bot account protection across all commands
+    - XP bounds checking (cannot go below 0)
+    - Colored embeds (green for additions, red for reductions)
+
+### Technical Details
+- Level Formula: `level = floor(sqrt(xp / 100)) + 1`
+- Inverse Fromula: `xp = (level - 1)^2 * 100`
+- Direct database access via prepared statements
+- Transaction support for atomic updates
+
+---
+
 ## [0.3.0] - 2025-12-08
 
 ### Added
@@ -162,6 +198,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## Version History Summary
 
+- **0.4.0** (2025-12-09) - Add admin XP management commands
 - **0.3.0** (2025-12-08) - Major UI overhaul, database migrations, version management, admin tools
 - **0.2.2** (2025-11-29) - Professional logging and startup screen
 - **0.2.0** (2025-11-28) - Daily reward system
