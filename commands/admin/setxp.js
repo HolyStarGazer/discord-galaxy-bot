@@ -3,36 +3,35 @@ const { statements, dbHelpers, db } = require('../../config/database');
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('setlevel')
-        .setDescription('Set the level of a user (Admin only)')
+        .setName('setxp')
+        .setDescription('Set the XP of a user (Admin only)')
         .addUserOption(option =>
             option
                 .setName('user')
-                .setDescription('The user to set the level for')
+                .setDescription('The user to set the XP for')
                 .setRequired(true))
         .addIntegerOption(option =>
             option
-                .setName('level')
-                .setDescription('The level to set (0-100)')
+                .setName('xp')
+                .setDescription('The amount of XP to set (0 or higher)')
                 .setRequired(true)
-                .setMinValue(0)
-                .setMaxValue(100))
+                .setMinValue(0))
         .addStringOption(option =>
             option
                 .setName('reason')
-                .setDescription('Reason for level change (optional)')
+                .setDescription('Reason for XP change (optional)')
                 .setRequired(false))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator), // Admin only
 
     async execute(interaction) {
         const targetUser = interaction.options.getUser('user');
-        const newLevel = interaction.options.getInteger('level');
+        const newXP = interaction.options.getInteger('xp');
         const reason = interaction.options.getString('reason');
 
-        // Don't allow setting level for bots
+        // Don't allow setting XP for bots
         if (targetUser.bot) {
             return interaction.deferReply({
-                content: 'Cannot set level for bots!',
+                content: 'Cannot set XP for bots!',
                 flags: MessageFlags.Ephemeral
             });
         }
@@ -43,10 +42,8 @@ module.exports = {
             const oldLevel = userData.level;
             const oldXP = userData.xp;
 
-            // Calculate XP for the new level
-            // Formula: level = floor(sqrt(xp / 100)) + 1
-            // Inverse: xp = (level - 1)^2 * 100
-            const newXP = Math.pow(newLevel - 1, 2) * 100;
+            // Calculate new level based on new XP
+            const newLevel = dbHelpers.calculateLevel(newXP);
 
             // Update the user
             const currentTime = Math.floor(Date.now() / 1000);
@@ -58,21 +55,16 @@ module.exports = {
 
             // Create embed
             const embed = new EmbedBuilder()
-                .setColor(newLevel > oldLevel ? '#57F287' : newLevel < oldLevel ? '#ED4245' : '#5865F2')
-                .setTitle('⚡ Level Set')
+                .setColor(newXP > oldXP ? '#57F287' : '#ED4245')
+                .setTitle('💫 XP Set')
                 .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
-                .setDescription(`Level has been set for ${targetUser}`)
+                .setDescription(`XP has been set for ${targetUser}`)
                 .addFields(
                     {
-                        name: '⭐ Level Change',
-                        value: `${oldLevel} → ${newLevel}${newLevel !== oldLevel ? ` (${newLevel > oldLevel ? '+' : ''}${newLevel - oldLevel})` : ' (No change)'}`,
+                        name: '📊 XP Change',
+                        value: `${oldXP.toLocaleString()} → ${newXP.toLocaleString()} (${newXP - oldXP >= 0 ? '+' : ''}${(newXP - oldXP).toLocaleString()})`,
                         inline: true
                     },
-                    {
-                        name: '📊 New XP',
-                        value: `${oldXP.toLocaleString()} → ${newXP.toLocaleString()}`,
-                        inline: true
-                    }
                 )
                 .addFields({
                     name: '📈 Progress',
@@ -88,18 +80,18 @@ module.exports = {
                     name: '📝 Reason',
                     value: reason,
                     inline: false
-                });
+                })
             }
 
             await interaction.reply({ embeds: [embed] });
 
             // Log the action
-            console.log(`[ADMIN] ${interaction.user.tag} set level: ${targetUser.tag} Level ${oldLevel} → ${newLevel} (${oldXP} XP → ${newXP} XP)${reason ? ` | Reason: ${reason}` : ''}`);
-
+            console.log(`[ADMIN] ${interaction.user.tag} set XP: ${targetUser.tag} ${newXP} XP (${oldXP} → ${newXP}), Level ${oldLevel} → ${newLevel})${reason ? ` | Reason: ${reason}` : ''}`);
+            
         } catch (error) {
-            console.error('Error in setlevel command:', error);
+            console.error('Error in setxp command:', error);
             await interaction.reply({
-                content: 'An error occurred while setting the level.',
+                content: 'An error occurred while setting the XP.',
                 flags: MessageFlags.Ephemeral
             });
         }

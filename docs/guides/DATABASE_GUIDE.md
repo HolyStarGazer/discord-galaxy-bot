@@ -188,7 +188,7 @@ return Math.floor(xp / 100) + 1;
 
 The database file is stored at: `data/bot.db`
 
-**⚠️ Important:** 
+**Important:** 
 - This file is already in `.gitignore` (won't be committed to GitHub)
 - Back it up regularly if you care about the data!
 - To reset everything, just delete `data/bot.db`
