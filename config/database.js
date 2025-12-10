@@ -225,7 +225,7 @@ const dbHelpers = {
      * Calculate level based on XP (you can adjust this formula)
      */
     calculateLevel(xp) {
-        // Formula: level = floor(sqrt(xp / 100))
+        // Formula: level = floor(sqrt(xp / 100)) + 1
         // This means: Level 1 = 0-99 XP, Level 2 = 100-399 XP, Level 3 = 400-899 XP, etc.
         return Math.floor(Math.sqrt(xp / 100)) + 1;
     },
