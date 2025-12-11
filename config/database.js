@@ -6,7 +6,7 @@ const fs = require('fs');
 const dataDir = path.join(__dirname, '..', 'data');
 if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
-    console.log('✅ Created data directory');
+    console.log('  \x1b[32m[OK]\x1b[0m   Created data directory');
 }
 
 // Create or open the database
@@ -37,9 +37,9 @@ function initDatabase() {
     const currentVersion = getDatabaseVersion();
 
     if (!dbExists) {
-        console.log('📦 Creating new database...');
+        console.log('  \x1b[34m[INFO]\x1b[0m Creating new database...');
     } else {
-        console.log('📦 Opening existing database...');
+        console.log('  \x1b[34m[INFO]\x1b[0m Opening existing database...');
     }
 
     // User table - stores XP and level data
@@ -87,7 +87,7 @@ function initDatabase() {
         ORDER BY xp DESC    
     `);
 
-    console.log('✅ Database initialized successfully.');
+    console.log('  \x1b[32m[OK]\x1b[0m   Database initialized successfully');
 }
 
 // Run database migrations
@@ -102,7 +102,7 @@ function runMigrations(currentVersion) {
                 const hasColumn = columns.some(col => col.name === 'last_daily_claim');
 
                 if (!hasColumn) {
-                    console.log('  -> Adding last_daily_claim column...');
+                    console.log('  \x1b[34m[INFO]\x1b[0m Adding last_daily_claim column...');
                     db.exec('ALTER TABLE users ADD COLUMN last_daily_claim INTEGER DEFAULT 0');
                 }
             }
@@ -114,13 +114,13 @@ function runMigrations(currentVersion) {
     migrations.forEach(migration => {
         if (currentVersion < migration.version) {
             if (currentVersion < migration.version) {
-                console.log(`📝 Running migration ${migration.version}: ${migration.description}`);
+                console.log(`  \x1b[33m[MIGRATE]\x1b[0m Running migration ${migration.version}: ${migration.description}`);
                 try {
                     migration.run();
                     setDatabaseVersion(migration.version);
-                    console.log(`  ✅ Migration ${migration.version} applied successfully.`);
+                    console.log(`  \x1b[32m[OK]\x1b[0m   Migration ${migration.version} applied successfully`);
                 } catch (error) {
-                    console.error(`  ❌  Migration ${migration.version} failed:`, error.message);
+                    console.error(`  \x1b[31m[ERROR]\x1b[0m Migration ${migration.version} failed: ${error.message}`);
                 }
             }
         }
@@ -180,12 +180,31 @@ const statements = {
     `),
 };
 
+function sanitizeUserId(userId) {
+    // Discord IDs are numeric strings, 17-19 chars
+    if (!/^\d{17,19}$/.test(userId)) { // Regex to match 17-19 digit numeric string
+        throw new Error('Invalid user ID format');
+    }
+    return userId;
+}
+
+function sanitizeUsername(username) {
+    // Discord usernames: 2-32 chars, alphanumeric and some special chars
+    if (!username || username.length < 2 || username.length > 32) {
+        throw new Error('Invalid username');
+    }
+    return username.slice(0, 32);
+}
+
 // Help functions
 const dbHelpers = {
     /**
      * Get or create a user
      */
     getOrCreateUser(userId, username) {
+        userId = sanitizeUserId(userId);
+        username = sanitizeUsername(username);
+
         let user = statements.getUser.get(userId);
 
         if (!user) {

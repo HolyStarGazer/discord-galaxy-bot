@@ -110,7 +110,7 @@ module.exports = {
   ```javascript
   await interaction.reply({ 
       content: 'Only you can see this!', 
-      ephemeral: MessageFlags.Ephemeral 
+      flags: MessageFlags.Ephemeral 
   });
   ```
 

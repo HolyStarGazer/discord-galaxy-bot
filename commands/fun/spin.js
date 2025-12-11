@@ -1,6 +1,15 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const crypto = require('crypto');
 
+// Secure random integer between min (inclusive) and max (exclusive)
+function secureRandom(min, max) {
+    const range = max - min;
+    const bytesNeeded = Math.ceil(Math.log2(range) / 8);
+    const randomBytes = crypto.randomBytes(bytesNeeded);
+    const randomValue = randomBytes.readUIntBE(0, bytesNeeded);
+    return min + (randomValue % range);
+}
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('spin')
@@ -36,7 +45,7 @@ module.exports = {
         await interaction.deferReply();
 
         // Use crypto for true randomness
-        const finalIndex = crypto.randomInt(0, options.length);
+        const finalIndex = secureRandom(0, options.length);
         const winner = options[finalIndex];
 
         // Function to create the vertical slot machine display

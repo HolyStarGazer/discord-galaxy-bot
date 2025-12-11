@@ -25,6 +25,15 @@ module.exports = {
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator), // Admin only
 
     async execute(interaction) {
+        // Double-check admin permissions
+        if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+            return interaction.reply({
+                content: 'This command requires Administrator permissions.',
+                flags: MessageFlags.Ephemeral
+            });
+        }
+        
+        // Get command options
         const targetUser = interaction.options.getUser('user');
         const newLevel = interaction.options.getInteger('level');
         const reason = interaction.options.getString('reason');
@@ -94,7 +103,7 @@ module.exports = {
             await interaction.reply({ embeds: [embed] });
 
             // Log the action
-            console.log(`[ADMIN] ${interaction.user.tag} set level: ${targetUser.tag} Level ${oldLevel} → ${newLevel} (${oldXP} XP → ${newXP} XP)${reason ? ` | Reason: ${reason}` : ''}`);
+            console.log(`    [ADMIN] ${interaction.user.tag} set level: ${targetUser.tag} Level ${oldLevel} → ${newLevel} (${oldXP} XP → ${newXP} XP)${reason ? ` | Reason: ${reason}` : ''}`);
 
         } catch (error) {
             console.error('Error in setlevel command:', error);

@@ -14,7 +14,9 @@ module.exports = {
             option
                 .setName('amount')
                 .setDescription('The amount of XP to add (can be negative)')
-                .setRequired(true))
+                .setRequired(true)
+                .setMinValue(-1000000)
+                .setMaxValue(1000000))
         .addStringOption(option =>
             option
                 .setName('reason')
@@ -23,6 +25,15 @@ module.exports = {
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator), // Admin only
     
     async execute(interaction) {
+        // Double-check admin permissions
+        if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+            return interaction.reply({
+                content: 'This command requires Administrator permissions.',
+                flags: MessageFlags.Ephemeral
+            });
+        }
+        
+        // Get command options
         const targetUser = interaction.options.getUser('user');
         const amount = interaction.options.getInteger('amount');
         const reason = interaction.options.getString('reason');
@@ -47,6 +58,14 @@ module.exports = {
             // Calculate new level based on new XP
             // Level formula: level = floor(sqrt(xp / 100)) + 1
             const newLevel = Math.floor(Math.sqrt(newXP / 100)) + 1;
+
+            // Prevent integer overflow
+            if (newXP > Number.MAX_SAFE_INTEGER) {
+                return interaction.reply({
+                    content: 'The resulting XP exceeds the maximum safe integer limit.',
+                    flags: MessageFlags.Ephemeral
+                });
+            }
 
             // Update the user
             const currentTime = Math.floor(Date.now() / 1000);
@@ -85,7 +104,7 @@ module.exports = {
             await interaction.reply({ embeds: [embed] });
 
             // Log the action
-            console.log(`[ADMIN] ${interaction.user.tag} modified XP: ${targetUser.tag} ${amount > 0 ? '+' : ''}${amount} XP (${oldXP} → ${newXP}), Level ${oldLevel} → ${newLevel})${reason ? ` | Reason: ${reason}` : ''}`);
+            console.log(`    [ADMIN] ${interaction.user.tag} modified XP: ${targetUser.tag} ${amount > 0 ? '+' : ''}${amount} XP (${oldXP} → ${newXP}), Level ${oldLevel} → ${newLevel})${reason ? ` | Reason: ${reason}` : ''}`);
         } catch (error) {
             console.error('Error in addxp command:', error);
             await interaction.reply({

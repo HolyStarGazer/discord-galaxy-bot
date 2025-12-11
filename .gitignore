@@ -12,6 +12,8 @@ node_modules/
 *.sqlite
 *.sqlite3
 data/
+backups/
+*.bak
 
 # Logs
 logs/
@@ -39,11 +41,15 @@ desktop.ini     # Windows
 # Shell scripts
 *.sh
 
-# Scripts
-scripts/
+# Testing scripts
+test/
 
 # Autostart related files
 AUTOSTART_GUIDE.md
 autostart-manager.js
 autostart.js
 start-bot-restart.bat
+
+# SQLite CLI
+sqlite3.exe
+sqlite3

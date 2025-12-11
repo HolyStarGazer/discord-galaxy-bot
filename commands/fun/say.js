@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -10,8 +10,24 @@ module.exports = {
             .setRequired(true)),
 
     async execute(interaction) {
-        const text = interaction.options.getString('message');
+        const message = interaction.options.getString('message');
 
-        await interaction.reply({ content: text});
+        // Discord message limit is 2000 chars
+        if (message.length > 2000) {
+            return interaction.reply({
+                content: 'Message is too long (max 2000 characters).',
+                flags: MessageFlags.Ephemeral
+            });
+        }
+
+        // Also check for abuse patterns
+        if (message.includes('@everyone') || message.includes('@here')) {
+            return interaction.reply({
+                content: 'Cannot use @everyone or @here mentions.',
+                flags: MessageFlags.Ephemeral
+            });
+        }
+
+        await interaction.reply({ content: message });
     }
 };

@@ -10,9 +10,68 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Planned
 - Blackjack game command
+- Tic-tac-toe game command
 - User profile customization
 - Server statistics dashboard
 - Achievement system
+- Economy system with virtual currency
+
+---
+
+## [0.5.0] - 2025-12-10
+
+### Added
+- **Purge Command (`/purge`)**
+    - Bulk delete 1-100 messages in a channel
+    - Optional user filtering (delete only messages from a specific user)
+    - Optional reason field for audit logging
+    - Handles Discord's 14-day message deletion limitation
+    - Ephemeral responses
+    - Runtime permission checks for both user and bot
+    - Comprehensive error handling with user-friendly messages
+
+- **Database Backup System**
+    - Automatic backups every 24 hours
+    - Timestamp-based scheduling (survives bot restarts)
+    - Configurable retention (keeps last 3 backups by default)
+    - Backup integrity verification
+    - Clean, professional logging with file size and status
+    - Backup state tracking in `data/last_backup.json`
+    - Automatic cleanup of old backups
+
+- **Backup Testing Tools**
+    - `scripts/test-backup.js` - Node.js backup verification
+    - Comprehensive 6-test validation suite
+
+- **Security Enhancements**
+    - Input sanitization for user IDs (validates Discord ID format)
+    - Input sanitation for usernames (length validation)
+    - Global rate limiting (100 messages/minute per user)
+    - Enhanced error logging nwith environment-aware detail levels
+    - Graceful shutdown with proper database closure
+
+- **Improved Logging**
+    - Styled database initialization messages
+    - Consistent color-coded status indicators across all files
+    - `[INFO]`, `[OK]`, `[ERROR]`, `[MIGRATE]` status tags
+    - Professional formatting matching index.js and deploy-commands.js
+
+- **Enhanced deploy-commands.js**
+    - ASCII banner matching index.js style
+    - Colored, categorized input
+    - Directory structure visualization
+    - Comprehensive deployment statistics
+    - Environment variable validation
+    - Complete deployed commands list with descriptions
+    - Deployment mode detection (Guild vs Global)
+    - Enhanced error handling with troubleshooting suggestions
+
+### Security
+- Added input validation helpers (`sanitizeUserId`, `sanitizeUsername`)
+- Implemented global rate limiting to prevent spam/Dos
+- Added runtime permission checks for admin commands
+- Enhanced error handling to prevent information disclosure
+- Implemented proper database connection closure
 
 ---
 
@@ -196,14 +255,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
-## Version History Summary
+## Version Numbering
 
-- **0.4.0** (2025-12-09) - Add admin XP management commands
-- **0.3.0** (2025-12-08) - Major UI overhaul, database migrations, version management, admin tools
-- **0.2.2** (2025-11-29) - Professional logging and startup screen
-- **0.2.0** (2025-11-28) - Daily reward system
-- **0.1.0** (2025-11-27) - Initial release with leveling system
-
+This project uses [Semantic Versioning](https://semver.org/):
+- **MAJOR** version for incompatible API changes
+- **MINOR** version for new functionality (backwards-compatible)
+- **PATCH** version for backwards-compatible bug fixes
 ---
 
 ## Links
@@ -211,97 +268,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - [GitHub Repository](https://github.com/HolyStarGazer/discord-galaxy-bot)
 - [Report Issues](https://github.com/HolyStarGazer/discord-galaxy-bot/issues)
 - [Discord.js Documentation](https://discord.js.org/)
-
---- 
-
-## Migration Notes
-
-### Upgrading to 0.3.0
-
-No manual migration required! The database will automatically update on bot startup.
-
-**What happens automatically:**
-1. Creates `/data` directory if missing
-2. Creates `bot.db` if missing
-3. Adds `last_daily_claim` column if upgrading from 0.1.0
-4. Updates database version to track migrations
-
-**To update:**
-```bash
-# Pull latest changes
-git pull origin main
-
-# Install any new dependencies
-npm install
-
-# Start bot (migrations run automatically)
-npm start
-```
-
-### Upgrading from Pre-0.2.0
-
-If you have a database from before version 0.2.0:
-- The automatic mgiration will add the `last_daily_column`
-- Existing user data is preserved
-- No data loss occurs
-
----
-
-## Development Notes
-
-### Adding new Migrations
-
-To add a new database migration, edit `config/database.js`
-
-```javascript
-const migrations = [
-    {
-        version: 1,
-        description: 'Add last_daily_column',
-        run: () => { /* ... */ }
-    },
-    {
-        version: 2, // New migration
-        description: 'Your new migration',
-        run: () => {
-            // Migration code here
-        }
-    }
-];
-```
-
-Then update the CREATE TABLE statement to include new columns for fresh installs
-
-### Updating version
-
-```bash
-# Bug fix (0.3.0 -> 0.3.1)
-npm run update-version patch
-
-# New feature (0.3.0 -> 0.4.0)
-npm run update-version minor
-
-# Breaking change (0.3.0 -> 1.0.0)
-npm run update-version major
-```
-
-## Contributors
-
-- **HolyStar** - Initial work and ongoing development
-
----
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
----
-
-## Acknowledgements
-
-- Discord.js community for excellent documentation
-- Better-sqlite3 for fast database operations
-- All users who provided feedback and testing
 
 ---
 
