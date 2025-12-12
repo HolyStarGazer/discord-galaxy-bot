@@ -4,7 +4,8 @@ const { db, statements, dbHelpers } = require('./config/database');
 const { version } = require('./package.json');  // ← Add this
 const fs = require('fs');                                       // File system module for reading command files
 const path = require('path');
-const { time } = require('console');
+const readline = require('readline');
+const { spawn } = require('child_process');
 
 // ============================================
 // DATABASE BACKUP SYSTEM
@@ -145,6 +146,286 @@ function initializeBackupSystem() {
             console.log('');
         }
     }, checkInterval); // Check every hour
+}
+
+// ============================================
+// INTERACTIVE COMMAND SYSTEM
+// ============================================
+
+let rl = null;
+
+function setupInteractiveCommands() {
+    // Detect if running in VSCode integrated terminal
+    if (process.env.TERM_PROGRAM === 'vscode') {
+        console.log('  \x1b[33m[WARN]\x1b[0m Commands not fully supported in VSCode integrated terminal (i.e. :restart, :redeploy)\n');
+    }
+
+    rl = readline.createInterface({
+        input: process.stdin,
+        prompt: ''
+    });
+
+    readline.emitKeypressEvents(process.stdin);
+    if (process.stdin.isTTY) {
+        process.stdin.setRawMode(true);
+    }
+
+    let commandMode = false;
+    let commandBuffer = '';
+
+    process.stdin.on('keypress', (str, key) => {
+        // Ctrl + C
+        if (key.ctrl && key.name === 'c') { // or \u0003 for Ctrl+C
+            gracefulShutdown('SIGINT');
+            return;
+        }
+
+        if (!commandMode && str === ':') { 
+            commandMode = true;
+            commandBuffer = '';
+            process.stdout.write('\n\x1b[33m[CMD]\x1b[0m : ');
+            
+            return;
+        }
+
+        if (!commandMode) return;
+
+        // Enter - execute
+        if (key.name === 'return') {
+            const command = commandBuffer.trim();
+            process.stdout.write('\n');
+
+            if (command) {
+                executeInteractiveCommand(command);
+            }
+
+            commandMode = false;
+            commandBuffer = '';
+            return;
+        }
+
+        // Backspace
+        if (key.name === 'backspace') {
+            if (commandBuffer.length > 0) {
+                commandBuffer = commandBuffer.slice(0, -1);
+                process.stdout.write('\b \b'); // Move back, write space, move back again
+            }
+
+        return;
+        }
+        
+        // Escape - cancel
+        if (key.name === 'escape') {
+            process.stdout.write('\n  \x1b[33m[INFO]\x1b[0m Command cancelled\n');
+            commandMode = false;
+            commandBuffer = '';
+            return;
+        }
+
+        // Regular character input
+        if (str && str.length === 1 && str.charCodeAt(0) >= 32) {
+            commandBuffer += str;
+            process.stdout.write(str);
+        }
+    });
+
+    console.log('  \x1b[34m[INFO]\x1b[0m Interactive commands enabled. Type \x1b[33m:\x1b[0m to enter command mode.\n');
+}
+
+async function executeInteractiveCommand(command) {
+    const timestamp = new Date().toLocaleTimeString();
+    console.log(`  \x1b[36m[${timestamp}]\x1b[0m Executing command: ${command}`);
+
+    switch (command.toLowerCase()) {
+        case 'help':
+            showInteractiveHelp();
+            break;
+        case 'restart':
+            restartBot();
+            break;
+        case 'redeploy':
+            redeployCommands();
+            break;
+        case 'status':
+            showBotStatus();
+            break;
+        case 'backup':
+            console.log('  \x1b[34m[INFO]\x1b[0m Creating manual backup...\n');
+            backupDatabase();
+            break;
+        case 'stats':
+            showBotStats();
+            break;
+        case 'stop':
+        case 'quit':
+        case 'exit':
+            gracefulShutdown('USER_COMMAND');
+            break;
+        default:
+            console.log(`  \x1b[31m[ERROR]\x1b[0m Unknown command: ${command}\n`);
+            console.log(`  \x1b[34m[INFO]\x1b[0m Type \x1b[33m:help\x1b[0m for available commands.\n`);
+    }
+}
+
+function showInteractiveHelp() {
+    console.log('\n┌─────────────────────────────────────────────────────────────────────┐');
+    console.log('│  \x1b[32mINTERACTIVE COMMANDS\x1b[0m                                               │');
+    console.log('├─────────────────────────────────────────────────────────────────────┤');
+    console.log('│  \x1b[33m:help\x1b[0m       - Show this help message                               │');
+    console.log('│  \x1b[33m:restart\x1b[0m    - Restart the bot                                      │');
+    console.log('│  \x1b[33m:redeploy\x1b[0m   - Deploy commands and restart                          │');
+    console.log('│  \x1b[33m:status\x1b[0m     - Show bot status                                      │');
+    console.log('│  \x1b[33m:stats\x1b[0m      - Show detailed statistics                             │');
+    console.log('│  \x1b[33m:backup\x1b[0m     - Create manual database backup                        │');
+    console.log('│  \x1b[33m:stop\x1b[0m       - Gracefully stop the bot                              │');
+    console.log('│                                                                     │');
+    console.log('│  Press \x1b[33mESC\x1b[0m to cancel command entry                                  │');
+    console.log('└─────────────────────────────────────────────────────────────────────┘\n');
+}
+
+function restartBot() {
+    console.log('  \x1b[33m[RESTART]\x1b[0m Restarting bot...\n');
+
+    if (rl) {
+        rl.close();
+
+        // Turn off raw mode before exiting
+        if (process.stdin.isTTY) {
+            process.stdin.setRawMode(false);
+        }
+    }
+
+    // Close Discord Client
+    client.destroy();
+
+    // Close database
+    if (db) {
+        console.log('  \x1b[34m[INFO]\x1b[0m Closing database connection...');
+        db.close();
+    }
+
+    console.log('  \x1b[34m[INFO]\x1b[0m Starting new instance...\n');
+
+    // Get the full path to the current script (index.js)
+    const scriptPath = path.resolve(process.argv[1]);
+
+    // Spawn new process
+    const args = process.argv.slice(1);
+    const child = spawn(process.argv[0], args, {
+        detached: true,
+        stdio: 'inherit',
+        cmd: process.cwd(),
+        env: process.env
+    });
+
+    // Windows unreference
+    if (process.platform === 'win32') {
+        child.unref();
+        
+        setTimeout(() => {
+            process.exit(0);
+        }, 1000);
+    } else {
+        child.unref();
+        process.exit(0);
+    }
+}
+
+async function redeployCommands() {
+    console.log('  \x1b[33m[REDEPLOY]\x1b[0m Deploying commands...\n');
+
+    return new Promise((resolve, reject) => {
+        const deployProcess = spawn('node', ['deploy-commands.js'], {
+            stdio: 'inherit'
+        });
+
+        deployProcess.on('close', (code) => {
+            if (code === 0) {
+                console.log('\n  \x1b[32m[OK]\x1b[0m Commands deployed successfully');
+                setTimeout(() => restartBot(), 1000);
+                resolve();
+            } else {
+                console.log(`\n  \x1b[31m[ERROR]\x1b[0m Deploy failed with code ${code}\n`);
+                reject(new Error('Deploy failed'));
+            }
+        });
+
+        deployProcess.on('error', (error) => {
+            console.error(`\n  \x1b[31m[ERROR]\x1b[0m Deploy process error: ${error.message}\n`);
+            reject(error);
+        });
+    });
+}
+
+function showBotStatus() {
+    console.log('\n┌─────────────────────────────────────────────────────────────────────┐');
+    console.log('│  \x1b[32mBOT STATUS\x1b[0m                                                         │');
+    console.log('├─────────────────────────────────────────────────────────────────────┤');
+    console.log(formatRow('Status:', client.isReady() ? 'Online' : 'Offline', client.isReady() ? '\x1b[32m' : '\x1b[31m'));
+    console.log(formatRow('Uptime:', formatUptime(client.uptime)));
+    console.log(formatRow('User:', client.user?.tag || 'Not logged in'));
+    console.log(formatRow('Guilds:', client.guilds.cache.size));
+    console.log(formatRow('Users:', client.users.cache.size));
+    console.log(formatRow('Channels:', client.channels.cache.size));
+    console.log(formatRow('Commands:', client.commands.size));
+    console.log('└─────────────────────────────────────────────────────────────────────┘\n');
+}
+
+function showBotStats() {
+    console.log('\n┌─────────────────────────────────────────────────────────────────────┐');
+    console.log('│  \x1b[32mDETAILED STATISTICS\x1b[0m                                                │');
+    console.log('├─────────────────────────────────────────────────────────────────────┤');
+    console.log(formatRow('Status:', client.isReady() ? 'Online' : 'Offline', client.isReady() ? '\x1b[32m' : '\x1b[31m'));
+    console.log(formatRow('Uptime:', formatUptime(client.uptime)));
+    console.log(formatRow('Version:', version));
+    console.log(formatRow('Node.js:', process.version));
+    console.log(formatRow('Discord.js:', require('discord.js').version));
+    console.log(formatRow('Guilds:', client.guilds.cache.size));
+    console.log(formatRow('Total Users:', client.users.cache.size));
+    console.log(formatRow('Channels:', client.channels.cache.size));
+    console.log(formatRow('Commands:', client.commands.size));
+
+    try {
+        const userCount = db.prepare('SELECT COUNT(*) AS count FROM users').get().count;
+        const totalXP = db.prepare('SELECT SUM(xp) AS total FROM users').get().total || 0;
+        const avgLevel = db.prepare('SELECT AVG(level) AS avg FROM users').get();
+
+        console.log(formatRow('DB Users:', userCount));
+        console.log(formatRow('Total XP:', totalXP?.toLocaleString() || '0'));
+        console.log(formatRow('Average Level:', avgLevel.avg?.toFixed(2) || '0'));
+    } catch (error) {
+        console.log(formatRow('DB Status:', '\x1b[31mError\x1b[0m'));
+    }
+
+    const memUsage = process.memoryUsage();
+    console.log(formatRow('Memory (RSS):', `${(memUsage.rss / 1024 / 1024).toFixed(2)} MB`));
+    console.log(formatRow('Memory (Heap):', `${(memUsage.heapUsed / 1024 / 1024).toFixed(2)} MB`));
+
+    try {
+        if (fs.existsSync(BACKUP_STATE_FILE)) {
+            const backupState = JSON.parse(fs.readFileSync(BACKUP_STATE_FILE, 'utf-8'));
+            const hoursAgo = ((Date.now() - backupState.lastBackup) / (1000 * 60 * 60)).toFixed(2);
+            console.log(formatRow('Last Backup:', `${hoursAgo} hours ago`));
+        }
+    } catch (error) {
+        console.log(formatRow('Last Backup:', '\x1b[33mUnknown\x1b[0m'));
+    }
+
+    console.log('└─────────────────────────────────────────────────────────────────────┘\n');
+}
+
+function formatUptime(ms) {
+    if (!ms) return 'Just started';
+
+    const seconds = Math.floor(ms / 1000) % 60;
+    const minutes = Math.floor(ms / (1000 * 60)) % 60;
+    const hours = Math.floor(ms / (1000 * 60 * 60)) % 24;
+    const days = Math.floor(ms / (1000 * 60 * 60 * 24));
+
+    if (days > 0) return `${days}d ${hours}h ${minutes}m ${seconds}s`;
+    if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+    if (minutes > 0) return `${minutes}m ${seconds}s`;
+    return `${seconds}s`;
 }
 
 const client = new Client({
@@ -320,6 +601,9 @@ client.once('clientReady', () => {
 
     // Initialize backup system after bot is ready
     initializeBackupSystem();
+
+    // Initialize interactive command system
+    setupInteractiveCommands();
 });
 
 // Message handler - listens for slash commands
