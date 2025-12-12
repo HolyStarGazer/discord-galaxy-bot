@@ -1,6 +1,6 @@
 # Galaxy Discord Bot
 
-![Version](https://img.shields.io/badge/version-0.5.0-blue)
+![Version](https://img.shields.io/badge/version-0.6.0-blue)
 ![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)
 ![Discord.js](https://img.shields.io/badge/discord.js-v14-5865F2)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -56,7 +56,7 @@ A feature-rich Discord bot built with discord.js featuring XP leveling, moderati
 ## Quick Setup
 
 ### Prerequisites
-- Node.js Version: 0.5.0 or higher
+- Node.js Version: 0.6.0 or higher
 - A Discord bot token from [Discord Developer Portal](https://discord.com/developers/applications)
 
 ### Installation
