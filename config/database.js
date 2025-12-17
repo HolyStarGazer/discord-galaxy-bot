@@ -1,12 +1,13 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
+const { log, logWithTimestamp } = require('../utils/formatters.js');
 
 // Ensure data directory exists
 const dataDir = path.join(__dirname, '..', 'data');
 if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
-    console.log('  \x1b[32m[OK]\x1b[0m   Created data directory');
+    log('OK', 'Created data directory');
 }
 
 // Create or open the database
@@ -37,9 +38,9 @@ function initDatabase() {
     const currentVersion = getDatabaseVersion();
 
     if (!dbExists) {
-        console.log('  \x1b[34m[INFO]\x1b[0m Creating new database...');
+        log('INFO', 'Creating new database...', 4);
     } else {
-        console.log('  \x1b[34m[INFO]\x1b[0m Opening existing database...');
+        log('INFO', 'Opening existing database...', 4);
     }
 
     // User table - stores XP and level data
@@ -87,7 +88,7 @@ function initDatabase() {
         ORDER BY xp DESC    
     `);
 
-    console.log('  \x1b[32m[OK]\x1b[0m   Database initialized successfully');
+    log('OK', 'Database initialized successfully');
 }
 
 // Run database migrations
@@ -102,7 +103,7 @@ function runMigrations(currentVersion) {
                 const hasColumn = columns.some(col => col.name === 'last_daily_claim');
 
                 if (!hasColumn) {
-                    console.log('  \x1b[34m[INFO]\x1b[0m Adding last_daily_claim column...');
+                    log('INFO', 'Adding last_daily_claim column...');
                     db.exec('ALTER TABLE users ADD COLUMN last_daily_claim INTEGER DEFAULT 0');
                 }
             }
@@ -114,13 +115,13 @@ function runMigrations(currentVersion) {
     migrations.forEach(migration => {
         if (currentVersion < migration.version) {
             if (currentVersion < migration.version) {
-                console.log(`  \x1b[33m[MIGRATE]\x1b[0m Running migration ${migration.version}: ${migration.description}`);
+                log('INFO', `Running migration ${migration.version}: ${migration.description}`);
                 try {
                     migration.run();
                     setDatabaseVersion(migration.version);
-                    console.log(`  \x1b[32m[OK]\x1b[0m   Migration ${migration.version} applied successfully`);
+                    log('OK', `Migration ${migration.version} applied successfully`, 4);
                 } catch (error) {
-                    console.error(`  \x1b[31m[ERROR]\x1b[0m Migration ${migration.version} failed: ${error.message}`);
+                    log('ERROR', `Migration ${migration.version} failed`, 4, error);
                 }
             }
         }

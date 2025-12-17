@@ -3,6 +3,7 @@ const { REST, Routes } = require('discord.js');
 const { version } = require('./package.json');
 const fs = require('fs');
 const path = require('path');
+const { displayBanner, displayHeader, displayTableHeaderColored, displayHeaderColored, displayTableFooter, log, logWithTimestamp } = require('./utils/formatters');
 
 // Suppress database initialization messages during command loading
 const originalLog = console.log;
@@ -85,63 +86,36 @@ function formatRow(label, value, color = '') {
     return `│  ${labelPart}${coloredValue}${' '.repeat(paddingNeeded)}│`;
 }
 
-function displayBanner() {
-    const versionText = `Command Deployer - Version ${version}`;
-    const paddedVersionText = versionText.padStart((65 + versionText.length) / 2).padEnd(65);
-    
-    console.clear();
-    console.log('\x1b[36m'); // Cyan color
-    console.log(`
-    ╔═════════════════════════════════════════════════════════════════╗
-    ║    ┌───┐                                                        ║
-    ║    │   │       ██████   █████  ██      █████  ██   ██ ██    ██  ║
-    ║   _/\\_/\\_     ██       ██   ██ ██     ██   ██  ██ ██   ██  ██   ║
-    ║   ( ^.^ )     ██   ███ ███████ ██     ███████   ███     ████    ║
-    ║    > ^ <      ██    ██ ██   ██ ██     ██   ██  ██ ██     ██     ║
-    ║   /|   |\\      ██████  ██   ██ ██████ ██   ██ ██   ██    ██     ║
-    ║  (_|   |_)                                                      ║
-    ║${paddedVersionText}║
-    ╚═════════════════════════════════════════════════════════════════╝
-    `);
-    console.log('\x1b[0m'); // Reset color
-}
-
-function displayHeader(header) {
-    console.log(`
-┌─────────────────────────────────────────────────────────────────────┐        
-│  ${header.padEnd(65)}  │
-└─────────────────────────────────────────────────────────────────────┘
-    `);
-}
 
 // Display banner
 displayBanner();
 displayHeader('INITIALIZATION');
 
-console.log('  \x1b[34m[INFO]\x1b[0m Loading environment variables...');
-console.log('  \x1b[32m[OK]\x1b[0m   Environment loaded successfully\n');
+log('INFO', 'Loading environment variables...');
+log('OK', 'Environment loaded successfully\n', 4);
 
-console.log('  \x1b[34m[INFO]\x1b[0m Verifying Discord credentials...');
+log('INFO', 'Verifying Discord credentials...');
 
 // Verify required environment variables
 const requiredVars = ['DISCORD_BOT_TOKEN', 'DISCORD_CLIENT_ID'];
 const missingVars = requiredVars.filter(v => !process.env[v]);
 
 if (missingVars.length > 0) {
-    console.error(`  \x1b[31m[ERROR]\x1b[0m Missing required environment variables: ${missingVars.join(', ')}`);
+    log('ERROR', `Missing required environment variables: ${missingVars.join(', ')}`, 4);
     process.exit(1);
 }
 
-console.log('  \x1b[32m[OK]\x1b[0m   Discord credentials verified successfully\n');
+log('OK', 'Discord credentials verified successfully\n', 4);
 
 // Check deployment mode
 const isGuildDeploy = !!process.env.DISCORD_GUILD_ID;
 const deployMode = isGuildDeploy ? 'Guild (instant)' : 'Global (up to 1 hour)';
-console.log(`  \x1b[34m[INFO]\x1b[0m Deployment mode: ${deployMode}\n`);
+
+log('INFO', `Deployment mode: ${deployMode}`);
 if (isGuildDeploy) {
-    console.log(`  \x1b[34m[INFO]\x1b[0m Target guild: ${process.env.DISCORD_GUILD_ID}\n`);
+    log('INFO', `Target guild ID: ${process.env.DISCORD_GUILD_ID}\n`, 4);
 } else {
-    console.log('  \x1b[33m[WARN]\x1b[0m Global deployment may take up to 1 hour to propagate\n');
+    log('WARN]', 'Global deployment may take up to 1 hour to propagate\n', 4);
 }
 
 displayHeader('COMMAND LOADER');
@@ -166,23 +140,21 @@ const successRate = commandStats.total > 0
     ? (commandStats.successful / commandStats.total * 100).toFixed(2)
     : '0.00'; 
 
-console.log('\n┌─────────────────────────────────────────────────────────────────────┐');
-console.log('│  SUMMARY                                                            │');
-console.log('├─────────────────────────────────────────────────────────────────────┤');
+displayTableHeaderColored('SUMMARY', 'cyan');
 console.log(formatRow('Total:', commandStats.total));
 console.log(formatRow('Loaded:', commandStats.successful, '\x1b[32m'));
 console.log(formatRow('Failed:', commandStats.failed, '\x1b[31m'));
 console.log(formatRow('Success Rate:', `${successRate}%`));
 console.log(formatRow('Load Time:', `${loadTime}ms`));
-console.log('└─────────────────────────────────────────────────────────────────────┘\n');
+displayTableFooter();
 
 // Exit if no commands loaded
 if (commandStats.successful === 0) {
-    console.error('  \x1b[31m[ERROR]\x1b[0m No commands to deploy. Exiting...\n');
+    log('ERROR', 'No commands to deploy. Exiting...\n', 2);
     process.exit(1);
 }
 
-displayHeader('DEPLOYMENT');
+displayHeaderColored('DEPLOYMENT', 'cyan');
 
 // Construct REST module
 const rest = new REST().setToken(process.env.DISCORD_BOT_TOKEN);
@@ -190,20 +162,20 @@ const rest = new REST().setToken(process.env.DISCORD_BOT_TOKEN);
 // Deploy commands 
 (async () => {
     try {
-        console.log(`  \x1b[36m[INFO]\x1b[0m Preparing to deploy ${commands.length} command(s)...\n`);
-        console.log('  \x1b[36m[INFO]\x1b[0m Connecting to Discord API...');
+        log('INFO', `Starting deployment of ${commands.length} command(s)...`);
+        log('INFO', 'Connecting to Discord API...');
 
         let data;
         const deployStartTime = Date.now();
 
         if (isGuildDeploy) {
-            console.log('  \x1b[36m[INFO]\x1b[0m Deploying to guild (instant updates)...');
+            log('INFO', 'Deploying to guild (instant updates)...');
             data = await rest.put(
                 Routes.applicationGuildCommands(process.env.DISCORD_CLIENT_ID, process.env.DISCORD_GUILD_ID),
                 { body: commands }
             );
         } else {
-            console.log('  \x1b[36m[INFO]\x1b[0m Deploying globally (may take up to 1 hour)...');
+            log('INFO', 'Deploying globally (may take up to 1 hour)...');
             data = await rest.put(
                 Routes.applicationCommands(process.env.DISCORD_CLIENT_ID),
                 { body: commands }
@@ -212,9 +184,7 @@ const rest = new REST().setToken(process.env.DISCORD_BOT_TOKEN);
         
         const deployTime = Date.now() - deployStartTime;
         
-        console.log('\n┌─────────────────────────────────────────────────────────────────────┐');
-        console.log('│  \x1b[32mDEPLOYMENT SUCCESS\x1b[0m                                                 │');
-        console.log('├─────────────────────────────────────────────────────────────────────┤');
+        displayTableHeaderColored('DEPLOYMENT SUCCESS', 'green');
         console.log(formatRow('Commands Deployed:', data.length, '\x1b[32m'));
         console.log(formatRow('Deployment Mode:', isGuildDeploy ? 'Guild (instant)' : 'Global (1 hour)'));
         console.log(formatRow('Deploy Time:', `${deployTime}ms`));
@@ -223,18 +193,16 @@ const rest = new REST().setToken(process.env.DISCORD_BOT_TOKEN);
             console.log(formatRow('Guild ID:', process.env.DISCORD_GUILD_ID));
         }
         console.log(formatRow('Timestamp:', new Date().toLocaleString()));
-        console.log('└─────────────────────────────────────────────────────────────────────┘\n');
+        displayTableFooter();
         
         if (isGuildDeploy) {
-            console.log('  \x1b[32m[SUCCESS]\x1b[0m Commands are now available in the target guild!\n');
+            log('OK', 'Commands are now available in the target guild!\n', 4);
         } else {
-            console.log('  \x1b[32m[SUCCESS]\x1b[0m Commands will be available globally within 1 hour.\n');
+            log('OK', 'Commands will be available globally within 1 hour.\n', 4);
         }
         
         // List deployed commands
-        console.log('┌─────────────────────────────────────────────────────────────────────┐');
-        console.log('│  DEPLOYED COMMANDS                                                  │');
-        console.log('├─────────────────────────────────────────────────────────────────────┤');
+        displayTableHeaderColored('DEPLOYED COMMANDS', 'cyan');
         
         data.forEach((cmd, index) => {
             const num = (index + 1).toString().padStart(2);
@@ -251,25 +219,22 @@ const rest = new REST().setToken(process.env.DISCORD_BOT_TOKEN);
             console.log(`│  ${num}. \x1b[36m/${cmdName}\x1b[0m ${cmdDesc}│`);
         });
         
-        console.log('└─────────────────────────────────────────────────────────────────────┘\n');
+        displayTableFooter();
         
     } catch (error) {
-        console.log('\n┌─────────────────────────────────────────────────────────────────────┐');
-        console.log('│  \x1b[31mDEPLOYMENT FAILED\x1b[0m                                                  │');
-        console.log('├─────────────────────────────────────────────────────────────────────┤');
+        displayTableHeaderColored('DEPLOYMENT FAILED', 'red');
         console.log(formatRow('Error:', error.message, '\x1b[31m'));
-        console.log('└─────────────────────────────────────────────────────────────────────┘\n');
-        
-        console.error('  \x1b[31m[ERROR]\x1b[0m Deployment failed. Details:');
-        console.error(error);
+        displayTableFooter();
+
+        log('ERROR', 'Deployment failed', 2, error);
         console.log('');
         
         // Common error suggestions
-        console.log('  \x1b[33m[HELP]\x1b[0m Common issues:');
-        console.log('    • Check your DISCORD_TOKEN is correct');
-        console.log('    • Verify DISCORD_CLIENT_ID matches your bot');
-        console.log('    • Ensure bot has proper permissions');
-        console.log('    • Check if DISCORD_GUILD_ID exists (if using guild deploy)\n');
+        log('INFO', 'Common issues:');
+        console.log('    1. Check your DISCORD_TOKEN is correct');
+        console.log('    2. Verify DISCORD_CLIENT_ID matches your bot');
+        console.log('    3. Ensure bot has proper permissions');
+        console.log('    4. Check if DISCORD_GUILD_ID exists (if using guild deploy)\n');
         
         process.exit(1);
     }
