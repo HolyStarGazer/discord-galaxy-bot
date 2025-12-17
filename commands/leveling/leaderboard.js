@@ -35,11 +35,12 @@ module.exports = {
         }).join('\n');
         
         const statsColumn = leaderboard.map((user) => {
-            // Align: level (3 chars), xp (7 chars), messages (8 chars)
+            // Align: level (3 chars), xp (7 chars), points (7 chars), messages (8 chars)
             const level = String(user.level).padEnd(3, ' ');
             const xp = String(user.xp).padEnd(7, ' ');
+            const points = String(user.points).padEnd(7, ' ');
             const msgs = String(user.total_messages);
-            return `${level} ${xp} ${msgs}`;
+            return `${level} ${xp} ${points} ${msgs}`;
         }).join('\n');
         
         // Find user's rank
@@ -61,7 +62,7 @@ module.exports = {
                     inline: true 
                 },
                 { 
-                    name: 'Level⠀XP⠀⠀⠀⠀⠀Messages', 
+                    name: 'Level⠀XP⠀⠀⠀⠀⠀Points⠀⠀⠀Messages', 
                     value: `\`\`\`\n${statsColumn}\n\`\`\``, 
                     inline: true 
                 }
@@ -72,6 +73,7 @@ module.exports = {
         if (userRank && userRank > limit) {
             const userLevel = String(userData.level).padEnd(3, ' ');
             const userXp = String(userData.xp).padEnd(7, ' ');
+            const userPoints = String(userData.points).padEnd(7, ' ');
             const userMsgs = String(userData.total_messages);
             
             embed.addFields(
@@ -91,16 +93,16 @@ module.exports = {
                     inline: true 
                 },
                 { 
-                    name: 'Level⠀XP⠀⠀⠀⠀⠀Messages', 
-                    value: `\`\`\`\n${userLevel} ${userXp} ${userMsgs}\n\`\`\``, 
+                    name: 'Level⠀XP⠀⠀⠀⠀⠀Points⠀⠀⠀Messages', 
+                    value: `\`\`\`\n${userLevel} ${userXp} ${userPoints} ${userMsgs}\n\`\`\``, 
                     inline: true 
-                }
+                },
             );
         }
         
         // Set footer
         embed.setFooter({
-            text: `Showing top ${leaderboard.length} users}`
+            text: `Showing top ${leaderboard.length} users`
         });
 
         await interaction.reply({ embeds: [embed] });

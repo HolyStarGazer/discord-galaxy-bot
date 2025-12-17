@@ -1,11 +1,13 @@
 require('dotenv').config();                                     
-const { Client, GatewayIntentBits, Collection, MessageFlags } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, MessageFlags, EmbedBuilder } = require('discord.js');
 const { db, statements, dbHelpers } = require('./config/database'); 
 const fs = require('fs');                                       
 const path = require('path');
 const { displayBanner, displayHeader, displayHeaderColored, displayTableHeader, displayTableFooter, formatRow, formatUptime, log, logWithTimestamp, displayTableHeaderColored } = require('./utils/formatters');
 const { setupInteractiveCommands, gracefulShutdown } = require('./utils/interactive-console');
 const { initializeBackupSystem } = require('./config/backup');
+const { initializeGameCleanup } = require('./utils/game-cleanup');
+const { handleBlackjackButton } = require('./utils/blackjack-handler');
 
 // ============================================
 // COMMAND LOADER
@@ -142,14 +144,26 @@ client.once('clientReady', () => {
     // Initialize backup system after bot is ready
     initializeBackupSystem();
 
+    // Initialize game cleanup system
+    initializeGameCleanup();
+
     // Initialize interactive command system
     setupInteractiveCommands(client, db);
 });
 
 // Message handler - listens for slash commands
 client.on('interactionCreate', async interaction => {
-    if (!interaction.isChatInputCommand()) return; // Ignore messages from bots
+    // Handle button interactions
+    if (interaction.isButton()) {
+        await handleButtonInteraction(interaction);
+        return;
+    }
 
+    // Ignore messages from bots
+    // This also interrupts button interactions
+    if (!interaction.isChatInputCommand()) return;
+
+    // Handle slash commands
     const command = client.commands.get(interaction.commandName);
 
     if (!command) {
@@ -178,6 +192,15 @@ client.on('interactionCreate', async interaction => {
         }
     }
 });
+
+async function handleButtonInteraction(interaction) {
+    // Handle blackjack buttons
+    if (interaction.customId.startsWith('blackjack_')) {
+        return await handleBlackjackButton(interaction);
+    }
+
+    // Add any other game handlers here (i.e. connect 4, tic-tac-toe, etc.)
+}
 
 // Login to Discord
 client.login(process.env.DISCORD_BOT_TOKEN);

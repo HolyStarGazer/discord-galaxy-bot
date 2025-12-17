@@ -18,6 +18,113 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [0.7.0] - 2025-12-17
+
+### Added
+- **Blackjack Game System**
+    - Full PvE blackjack implementation with standard rules
+    - Interactive Discord buttons (Hit, Stand, Rules)
+    - Real-time game state updates with embeds
+    - Betting system with configurable min/max (10 - 10,000 points)
+    - Standard dealer rules (hits on 16, stands on 17)
+    - Blackjack pays 3:2, regular win pays 1:1
+    - Card shuffling using [Fisher-Yates algorithm](https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle)
+    - Ace handling (counts as 1 or 11 optimally)
+
+- **Points System**
+    - New `points` currency (default: 1,000 starting balance)
+    - `/points [user]` - Check point balance and active games
+    - `/addpoints <user> <amount>` - Add points to a user (Admin)
+    - `/setpoints <user> <amount>` - Set points for a user (Admin)
+    - Points persist across bot restarts
+
+- **Game Session Management**
+    - Persistent game sessions stored in database
+    - Session validation (ownership, active status)
+    - Prevention of multiple simultaneous games per user
+    - 24-hour automatic cleanup of abandoned games
+    - Game state stored as JSON (deck, hands, bet, status)
+
+- **Database Changes**
+    - **Migration v2**: Added `points` column to users table
+    - Created `game_sessions` table with indexes
+    - Added `active_blackjack_games` view for cleanup queries
+    - Updated `leaderboard` view to include points
+    - Database version tracking for safe migrations
+
+- **Game Files**
+    - `games/blackjack/blackjack-engine.js` - Core game logic
+    - `utils/blackjack-handler.js` - Button interaction handlers
+    - `utils/game-cleanup.js` - Automated session cleanup
+    - `commands/games/blackjack.js` - Slash command builder
+    - `commands/games/points.js` - Points balance command
+    - `commands/admin/addpoints.js` - Admin point awarding
+    - `commands/admin/setpoints.js` - Admin point setting
+
+### Changed
+- Database schema updated from v1 to v2
+- Leaderboard now displays points alongside XP and level
+- Modularized button interaction handling in index.js
+- Enhanced database helpers with transaction support
+
+### Technical Details
+- Game Engine:
+    - 52-card deck implementation with suit symbols
+    - Hand value calculation with Ace optimization
+    - Bust detection and win conditeion evaluation
+    - Payout calculation (3:2 for blackjack, 1:1 for win)
+- Session Management:
+    - Unix timestamp tracking (created, updated, completed)
+    - Status tracking (active/won/lost/push/abandoned)
+    - Foreign key constraints to users table
+    - Indexed for efficient queries
+- Cleanup System:
+    - Runs on startup and every hour
+    - Deletes sessions older than 24 hours
+    - Logs cleanup operations
+- Security
+    - Admin commands require ADMINISTRATOR permission
+    - User ID validation and sanitation
+    - Session ownership verification
+    - SQL injection prevent via prepared statements
+
+### Performance
+- Efficient SQL indexes on active games and timestamps
+- View-based queries for complex aggregations
+- Prepared statements for all database operations
+- Hourly cleanup reduces database bloat
+
+---
+
+## [0.6.0] - 2025-12-14
+
+### Changed
+- **BREAKING**: Refactored 750+ line index.js into modular structure
+    - Moved database logic to `config/database.js`
+    - Extracted display utilities to `utils/formatters.js`
+    - Created `utils/interactive-console.js` for command management
+    - Separated backup logic into `config/backup.js`
+
+### Added
+- Interactive console commands (`:help`, `:restart`, `:redeploy`, `:status`, `:stats`, `:backup`, `:stop`)
+    - Vim-style command mode activated with `:` key
+    - Real-time command input with visual feedback
+    - ESC to cancel command entry
+- Enhanced logging functions:
+    - `log(level, message, indent, error)` - Unified logging with error support
+    - `logWithTimestamp()` - Timestamped log entries
+    - `formatRow()`, `formatUptime()` - consistent formatting
+- Database health checks on startup
+- Comprehensive error handling with stack traces
+
+### Technical Details
+- Separated concerns: configuration, utilities, and business logic
+- Improved testability with modular design
+- Enhanced maintainability with clear file structure
+- Added extensive JSDoc comments throughout codebase
+
+---
+
 ## [0.5.0] - 2025-12-10
 
 ### Added
