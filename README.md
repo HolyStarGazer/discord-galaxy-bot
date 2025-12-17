@@ -25,12 +25,14 @@ A feature-rich Discord bot built with discord.js featuring XP leveling, moderati
 - Starting balance: 1,000 points
 - Points persist across bot restarts
 
-**Fun commands**
+**Fun Commands**
 - `/say <message>` - Make the bot say anything you want
 - `/roll [dice] [sides]` - Roll dice with customizable patterns (e.g., 2d20)
 - `/spin <options...>` - Spin a wheel to randomly select from options
 
 ### Leveling System
+
+**Leveling Commands**
 
 - `/daily` - Claim daily XP rewards (100-150 XP every 24 hours)
 - `/leaderboard [limit]` - View the server's top users by XP
