@@ -1,74 +1,242 @@
+process.env.DB_SILENT = 'true';
+
 require('dotenv').config();
 const { REST, Routes } = require('discord.js');
-const { version } = require('./package.json');
 const fs = require('fs');
 const path = require('path');
-const { displayBanner, displayHeader, displayTableHeaderColored, displayHeaderColored, displayTableFooter, log, logWithTimestamp } = require('./utils/formatters');
+const crypto = require('crypto');
+const { displayTableHeaderColored, displayHeaderColored, displayTableFooter, log } = require('./utils/formatters');
 
-// Suppress database initialization messages during command loading
-const originalLog = console.log;
-let suppressDatabaseLogs = false;
+const CACHE_FILE = path.join(__dirname, 'command-cache.json');
 
-console.log = function(...args) {
-    if (suppressDatabaseLogs) {
-        const message = args.join(' ');
-        // Suppress database-related messages (including emoji variants)
-        if (message.includes('📦') || 
-            message.includes('✅') ||
-            message.includes('database') || 
-            message.includes('Database') ||
-            message.includes('migration') ||
-            message.includes('Opening existing') ||
-            message.includes('Creating new') ||
-            message.includes('initialized')) {
-            return; // Skip these messages
-        }
-    }
-    originalLog.apply(console, args);
-};
-
-const commands = [];
-const commandStats = {
-    total: 0,
-    successful: 0,
-    failed: 0
+/**
+ * Generate a hash of command data to detect changes
+ * @param {object} command - The command module
+ * @return {string} The hash string
+ */
+function hashCommand(command) {
+    const data = JSON.stringify(command.data.toJSON());
+    return crypto.createHash('md5').update(data).digest('hex');
 }
 
-// Load command files
-function loadCommands(dir, depth = 0) {
+/**
+ * Load the previous command cache
+ * @return {object} The command cache
+ */
+function loadCache() {
+    try {
+        if (fs.existsSync(CACHE_FILE)) {
+            return JSON.parse(fs.readFileSync(CACHE_FILE, 'utf-8'));
+        }
+    } catch (error) {
+        log('WARN', 'Failed to load command cache, will redeploy all commands', 2, error);
+    }
+    return { commands: {}, lastDeploy: null };
+}
+
+/**
+ * Save the command cache
+ * @param {object} cache - The command cache to save
+ */
+function saveCache(cache) {
+    try {
+        const dataDir = path.dirname(CACHE_FILE);
+        if (!fs.existsSync(dataDir)) {
+            fs.mkdirSync(dataDir, { recursive: true });
+        }
+        fs.writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2));
+    } catch (error) {
+        log('WARN', 'Failed to save command cache', 2, error);
+    }
+}
+
+/**
+ * Load all commands from the commands directory
+ * @param {string} dir - The commands directory
+ * @param {array} commands - The array to populate with commands
+ * @return {array} The loaded commands
+ */
+function loadCommands(dir, commands = []) {
     const files = fs.readdirSync(dir);
-    const indent = '  '.repeat(depth + 1);
-    const COMMAND_NAME_WIDTH = 25;
 
     for (const file of files) {
         const filePath = path.join(dir, file);
         const stat = fs.statSync(filePath);
 
         if (stat.isDirectory()) {
-            console.log(`${indent}\x1b[34m[DIR]\x1b[0m     ${file}/`);
-            loadCommands(filePath, depth + 1);
+            loadCommands(filePath, commands);
         } else if (file.endsWith('.js')) {
-            commandStats.total++;
-
             try {
+                // Clear require cache to get fresh version
+                delete require.cache[require.resolve(filePath)];
                 const command = require(filePath);
 
                 if (command.data && command.execute) {
-                    commands.push(command.data.toJSON());
-                    console.log(`${indent}\x1b[32m[LOADED]\x1b[0m  ${command.data.name.padEnd(COMMAND_NAME_WIDTH)}`);
-                    commandStats.successful++;
-                } else {
-                    console.warn(`${indent}\x1b[33m[SKIP]\x1b[0m    ${file.padEnd(COMMAND_NAME_WIDTH)} Missing properties`);
-                    commandStats.failed++;
+                    commands.push({
+                        name: command.data.name,
+                        data: command.data,
+                        path: filePath,
+                        hash: hashCommand(command)
+                    });
                 }
             } catch (error) {
-                console.error(`${indent}\x1b[31m[ERROR]\x1b[0m   ${file.padEnd(COMMAND_NAME_WIDTH)} ${error.message}`);
-                commandStats.failed++;
+                log('ERROR', `Failed to load ${file} at ${filePath}`, 2, error);
             }
         }
     }
+
+    return commands;
 }
 
+/**
+ * Main deployment function
+ * @param {object} options - Deployment options
+ * @param {boolean} options.force - Force deployment even if no changes detected
+ * @param {boolean} options.guild - Deploy to guild (true) or globally (false)
+ * @return {object} Deployment result
+ */
+async function deployCommands(options = {}) {
+    const { force = false, guild = true } = options;
+
+    displayHeaderColored('COMMAND DEPLOYMENT', 'cyan');
+
+    // Load commands and cache
+    const commandsPath = path.join(__dirname, 'commands');
+    const commands = loadCommands(commandsPath);
+    const cache = loadCache();
+
+    log('INFO', `Found ${commands.length} command(s)`);
+
+    // Detect changes
+    const newCommands = [];
+    const updatedCommands = [];
+    const unchangedCommands = [];
+    const removedCommands = [];
+
+    // Check for new/updated commands
+    for (const cmd of commands) {
+        const cachedHash = cache.commands[cmd.name];
+
+        if (!cachedHash) {
+            newCommands.push(cmd);
+        } else if (cachedHash !== cmd.hash) {
+            updatedCommands.push(cmd);
+        } else {
+            unchangedCommands.push(cmd);
+        }
+    }
+
+    // Check for removed commands
+    const currentCommandNames = commands.map(c => c.name);
+    for (const cachedName of Object.keys(cache.commands)) {
+        if (!currentCommandNames.includes(cachedName)) {
+            removedCommands.push(cachedName);
+        }
+    }
+
+    // Display change summary
+    displayTableHeaderColored('CHANGE SUMMARY', 'cyan');
+    console.log(formatRow('New:', newCommands.length, '\x1b[32m'));
+    console.log(formatRow('Updated:', updatedCommands.length, '\x1b[33m'));
+    console.log(formatRow('Unchanged:', unchangedCommands.length));
+    console.log(formatRow('Removed:', removedCommands.length, '\x1b[31m'));
+    displayTableFooter();
+
+    // Check if deployment is needed
+    const hasChanges = newCommands.length > 0 || updatedCommands.length > 0 || removedCommands.length > 0;
+
+    if (!hasChanges && !force) {
+        log('OK', 'No changes detected. Skipping deployment.', 2);
+        log('INFO', 'Use --force to deploy anyway.', 4);
+        console.log('');
+        return { deployed: false, reason: 'no-changes' };
+    }
+
+    if (force && !hasChanges) {
+        log('INFO', 'Force flag set. Deploying all commands...');
+        console.log('');
+    }
+
+    // Log individual changes
+    if (newCommands.length > 0) {
+        log('INFO', 'New commands:');
+        newCommands.forEach(cmd => console.log(`    + ${cmd.name}`));
+        console.log('');
+    }
+
+    if (updatedCommands.length > 0) {
+        log('INFO', 'Updated commands:');
+        updatedCommands.forEach(cmd => console.log(`    ~ ${cmd.name}`));
+        console.log('');
+    }
+
+    if (removedCommands.length > 0) {
+        log('INFO', 'Removed commands:');
+        removedCommands.forEach(name => console.log(`    - ${name}`));
+        console.log('');
+    }
+
+    // Deploy to Discord
+    const rest = new REST().setToken(process.env.DISCORD_BOT_TOKEN);
+    const commandData = commands.map(cmd => cmd.data.toJSON());
+
+    try {
+        log('INFO', 'Deploying commands to Discord...');
+
+        let result;
+        if (guild && process.env.DISCORD_GUILD_ID) {
+            // Guild deployment (instant)
+            result = await rest.put(
+                Routes.applicationGuildCommands(
+                    process.env.DISCORD_CLIENT_ID,
+                    process.env.DISCORD_GUILD_ID
+                ),
+                { body: commandData }
+            );
+            log('OK', `Deployed ${result.length} command(s) to guild (instant)`, 4);
+        } else {
+            // Global deployment (up to 1 hour delay)
+            result = await rest.put(
+                Routes.applicationCommands(process.env.DISCORD_CLIENT_ID),
+                { body: commandData }
+            );
+            log('OK', `Deployed ${result.length} command(s) globally (may take up to 1 hour)`, 4);
+        }
+
+        // Update cache
+        const newCache = {
+            commands: {},
+            lastDeploy: new Date().toISOString(),
+            deployedCount: commands.length
+        };
+
+        for (const cmd of commands) {
+            newCache.commands[cmd.name] = cmd.hash;
+        }
+
+        saveCache(newCache);
+        log('OK', 'Command cache updated', 4);
+
+        return {
+            deployed: true,
+            count: result.length,
+            new: newCommands.length,
+            updated: updatedCommands.length,
+            removed: removedCommands.length
+        };
+    } catch (error) {
+        log('ERROR', 'Deployment failed', 4, error);
+        throw error;
+    }
+}
+
+/**
+ * Format a table row with fixed width
+ * @param {string} label - The label for the row
+ * @param {string|number} value - The value for the row
+ * @param {string} color - Optional ANSI color code for the value
+ * @return {string} The formatted table row
+ */
 function formatRow(label, value, color = '') {
     const valueStr = String(value);
     
@@ -86,156 +254,44 @@ function formatRow(label, value, color = '') {
     return `│  ${labelPart}${coloredValue}${' '.repeat(paddingNeeded)}│`;
 }
 
+// Parse command line arguments
+const args = process.argv.slice(2);
+const options = {
+    force: args.includes('--force') || args.includes('-f'),
+    guild: !args.includes('--global') || !args.includes('-g')
+};
 
-// Display banner
-displayBanner();
-displayHeader('INITIALIZATION');
+if (args.includes('--help') || args.includes('-h')) {
+    console.log(`
+Usage: node deploy-commands.js [options]
 
-log('INFO', 'Loading environment variables...');
-log('OK', 'Environment loaded successfully\n', 4);
+Options:
+    --f, --force       Force deployment even if no changes detected
+    --g, --global      Deploy commands globally instead of to a guild (slower)
+    --h, --help        Show this help message
 
-log('INFO', 'Verifying Discord credentials...');
+Examples:
+    node deploy-commands.js             # Smart deploy to guild
+    node deploy-commands.js --force     # Force deploy to guild
+    node deploy-commands.js --global    # Deploy globally
+    `);
 
-// Verify required environment variables
-const requiredVars = ['DISCORD_BOT_TOKEN', 'DISCORD_CLIENT_ID'];
-const missingVars = requiredVars.filter(v => !process.env[v]);
-
-if (missingVars.length > 0) {
-    log('ERROR', `Missing required environment variables: ${missingVars.join(', ')}`, 4);
-    process.exit(1);
+    process.exit(0);
 }
 
-log('OK', 'Discord credentials verified successfully\n', 4);
-
-// Check deployment mode
-const isGuildDeploy = !!process.env.DISCORD_GUILD_ID;
-const deployMode = isGuildDeploy ? 'Guild (instant)' : 'Global (up to 1 hour)';
-
-log('INFO', `Deployment mode: ${deployMode}`);
-if (isGuildDeploy) {
-    log('INFO', `Target guild ID: ${process.env.DISCORD_GUILD_ID}\n`, 4);
-} else {
-    log('WARN]', 'Global deployment may take up to 1 hour to propagate\n', 4);
-}
-
-displayHeader('COMMAND LOADER');
-
-// Load all commands
-const commandsPath = path.join(__dirname, 'commands');
-const startTime = Date.now();
-
-if (fs.existsSync(commandsPath)) {
-    console.log('  Commands:\n');
-    suppressDatabaseLogs = true; // Suppress database logs during command loading
-    loadCommands(commandsPath);
-    suppressDatabaseLogs = false; // Re-enable database logs
-} else {
-    console.error('  \x1b[31m[ERROR]\x1b[0m Commands directory not found!', commandsPath);
-    process.exit(1);
-}
-
-// Calculate stats
-const loadTime = Date.now() - startTime;
-const successRate = commandStats.total > 0
-    ? (commandStats.successful / commandStats.total * 100).toFixed(2)
-    : '0.00'; 
-
-displayTableHeaderColored('SUMMARY', 'cyan');
-console.log(formatRow('Total:', commandStats.total));
-console.log(formatRow('Loaded:', commandStats.successful, '\x1b[32m'));
-console.log(formatRow('Failed:', commandStats.failed, '\x1b[31m'));
-console.log(formatRow('Success Rate:', `${successRate}%`));
-console.log(formatRow('Load Time:', `${loadTime}ms`));
-displayTableFooter();
-
-// Exit if no commands loaded
-if (commandStats.successful === 0) {
-    log('ERROR', 'No commands to deploy. Exiting...\n', 2);
-    process.exit(1);
-}
-
-displayHeaderColored('DEPLOYMENT', 'cyan');
-
-// Construct REST module
-const rest = new REST().setToken(process.env.DISCORD_BOT_TOKEN);
-
-// Deploy commands 
-(async () => {
-    try {
-        log('INFO', `Starting deployment of ${commands.length} command(s)...`);
-        log('INFO', 'Connecting to Discord API...');
-
-        let data;
-        const deployStartTime = Date.now();
-
-        if (isGuildDeploy) {
-            log('INFO', 'Deploying to guild (instant updates)...');
-            data = await rest.put(
-                Routes.applicationGuildCommands(process.env.DISCORD_CLIENT_ID, process.env.DISCORD_GUILD_ID),
-                { body: commands }
-            );
-        } else {
-            log('INFO', 'Deploying globally (may take up to 1 hour)...');
-            data = await rest.put(
-                Routes.applicationCommands(process.env.DISCORD_CLIENT_ID),
-                { body: commands }
-            );
+// Run deployment
+deployCommands(options)
+    .then(result => {
+        if (result.deployed) {
+            log('OK', 'Deployment complete!', 4);
+            console.log('');
         }
-        
-        const deployTime = Date.now() - deployStartTime;
-        
-        displayTableHeaderColored('DEPLOYMENT SUCCESS', 'green');
-        console.log(formatRow('Commands Deployed:', data.length, '\x1b[32m'));
-        console.log(formatRow('Deployment Mode:', isGuildDeploy ? 'Guild (instant)' : 'Global (1 hour)'));
-        console.log(formatRow('Deploy Time:', `${deployTime}ms`));
-        console.log(formatRow('Total Time:', `${Date.now() - startTime}ms`));
-        if (isGuildDeploy) {
-            console.log(formatRow('Guild ID:', process.env.DISCORD_GUILD_ID));
-        }
-        console.log(formatRow('Timestamp:', new Date().toLocaleString()));
-        displayTableFooter();
-        
-        if (isGuildDeploy) {
-            log('OK', 'Commands are now available in the target guild!\n', 4);
-        } else {
-            log('OK', 'Commands will be available globally within 1 hour.\n', 4);
-        }
-        
-        // List deployed commands
-        displayTableHeaderColored('DEPLOYED COMMANDS', 'cyan');
-        
-        data.forEach((cmd, index) => {
-            const num = (index + 1).toString().padStart(2);
-            const cmdName = cmd.name.padEnd(20); // 20 chars for command name
-            
-            // Description: 43 chars (truncate or pad)
-            let cmdDesc = cmd.description;
-            if (cmdDesc.length > 41) {
-                cmdDesc = cmdDesc.substring(0, 38) + '...';
-            } else {
-                cmdDesc = cmdDesc.padEnd(41);
-            }
-            
-            console.log(`│  ${num}. \x1b[36m/${cmdName}\x1b[0m ${cmdDesc}│`);
-        });
-        
-        displayTableFooter();
-        
-    } catch (error) {
-        displayTableHeaderColored('DEPLOYMENT FAILED', 'red');
-        console.log(formatRow('Error:', error.message, '\x1b[31m'));
-        displayTableFooter();
-
-        log('ERROR', 'Deployment failed', 2, error);
+        setTimeout(() => process.exit(0), 100);
+    })
+    .catch(error => {
+        log('ERROR', 'Deployment failed!', 4, error);
         console.log('');
-        
-        // Common error suggestions
-        log('INFO', 'Common issues:');
-        console.log('    1. Check your DISCORD_TOKEN is correct');
-        console.log('    2. Verify DISCORD_CLIENT_ID matches your bot');
-        console.log('    3. Ensure bot has proper permissions');
-        console.log('    4. Check if DISCORD_GUILD_ID exists (if using guild deploy)\n');
-        
-        process.exit(1);
-    }
-})();
+        setTimeout(() => process.exit(1), 100);
+    });
+
+module.exports = { deployCommands };
