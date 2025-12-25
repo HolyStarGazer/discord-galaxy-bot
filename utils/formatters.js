@@ -2,9 +2,14 @@ const { version } = require('../package.json');
 
 const LOG_COLORS = {
     INFO: '\x1b[34m',   // Blue
+    NOTE: '\x1b[34m',   // Blue
     WARN: '\x1b[33m',   // Yellow
+    ADMIN: '\x1b[33m',  // Yellow
     ERROR: '\x1b[31m',  // Red
+    FAILED: '\x1b[31m', // Red
     OK: '\x1b[32m',     // Green
+    LOADED: '\x1b[32m',  // Green
+    SUCCESS: '\x1b[32m', // Green
     CMD: '\x1b[35m'     // Magenta
 }
 
@@ -265,11 +270,11 @@ function formatTimestamp(date) {
 function logWithTimestamp(level, message, indent = 2, error = null) {
     const timestamp = new Date().toLocaleString();
     const color = LOG_COLORS[level] || '';
+    const prefix = ' '.repeat(indent);
 
     // Choose the appropriate console method based on log level and presence of error
     const logger = (level === 'ERROR' || level === 'WARN') ? console.error : console.log;
-
-    logger(`${' '.repeat(indent)}${color}[${timestamp}] [${level}]\x1b[0m ${message}`);
+    logger(`${color}${prefix}[${timestamp}] [${level}]\x1b[0m ${message}`);
     
     if (error !== null) {
         console.error(`    Error type: ${error.name}`);
@@ -291,11 +296,11 @@ function logWithTimestamp(level, message, indent = 2, error = null) {
  */
 function log(level, message, indent = 2, error = null) {
     const color = LOG_COLORS[level] || '';
+    const prefix = ' '.repeat(indent);
 
     // Choose the appropriate console method based on log level and presence of error
     const logger = (level === 'ERROR' || level === 'WARN') ? console.error : console.log;
-
-    logger(`${' '.repeat(indent)}${color}[${level}]\x1b[0m ${message}`);
+    logger(`${prefix}${color}[${level}]\x1b[0m ${message}`);
 
     if (error !== null) {
         console.error(`${' '.repeat(indent+2)}Error type: ${error.name}`);

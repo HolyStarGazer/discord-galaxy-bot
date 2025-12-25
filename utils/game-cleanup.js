@@ -17,7 +17,7 @@ function initializeGameCleanup() {
         cleanupGameSessions();
     }, CLEANUP_INTERVAL);
 
-    log('OK', 'Game cleanup system initialized (runs hourly)', 4);
+    log('OK', 'Game cleanup system initialized (runs hourly)\n', 4);
 }
 
 /**
