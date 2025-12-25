@@ -1,5 +1,11 @@
-require('dotenv').config();                                     
-const { Client, GatewayIntentBits, Collection, MessageFlags, EmbedBuilder } = require('discord.js');
+require('dotenv').config();
+const { validateEnv } = require('./utils/env-validator');
+validateEnv();
+
+const { checkRateLimit } = require('./utils/rate-limiter');
+const { setupGlobalErrorHandlers } = require('./utils/error-handler');
+const { initHealthMonitor } = require('./utils/health-monitor');
+const { Client, GatewayIntentBits, Collection, MessageFlags } = require('discord.js');
 const { db, statements, dbHelpers } = require('./config/database'); 
 const fs = require('fs');                                       
 const path = require('path');
@@ -8,6 +14,9 @@ const { setupInteractiveCommands, gracefulShutdown } = require('./utils/interact
 const { initializeBackupSystem } = require('./config/backup');
 const { initializeGameCleanup } = require('./utils/game-cleanup');
 const { handleBlackjackButton } = require('./utils/blackjack-handler');
+
+// Setup global errro handlers early
+setupGlobalErrorHandlers();
 
 // ============================================
 // COMMAND LOADER
@@ -66,6 +75,24 @@ function loadCommands(dir, depth = 0) {
             }
         }
     }
+}
+
+// Instead of loading all commands at startup, load on demand
+// Alternative to loadCommands()
+const commandCache = new Map();
+
+function getCommand(name) {
+    if (commandCache.has(name)) {
+        return commandCache.get(name);
+    }
+
+    // Find and load command
+    const command = client.commands.get(name);
+    if (command) {
+        commandCache.set(name, command);
+    }
+
+    return command;
 }
 
 // ============================================
@@ -147,9 +174,16 @@ client.once('clientReady', () => {
     // Initialize game cleanup system
     initializeGameCleanup();
 
+    // Initialize health monitor
+    initHealthMonitor(client, db);
+
     // Initialize interactive command system
     setupInteractiveCommands(client, db);
 });
+
+// ============================================
+// INTERACTION HANDLER (Slash Commands & Buttons)
+// ============================================
 
 // Message handler - listens for slash commands
 client.on('interactionCreate', async interaction => {
@@ -165,30 +199,44 @@ client.on('interactionCreate', async interaction => {
 
     // Handle slash commands
     const command = client.commands.get(interaction.commandName);
+    //const command = getCommand(interaction.commandName);
 
     if (!command) {
         log('WARN', `Received unknown command: ${interaction.commandName}`);
         return;
     }
 
-    // Execute the command with error handling
+    // Check rate limit for commands
+    const rateLimit = checkRateLimit(interaction.user.id, interaction.commandName);
+    if (rateLimit.limited) {
+        const seconds = Math.ceil(rateLimit.resetIn / 1000);
+        return interaction.reply({
+            content: `You're using this command too fast! Try again in ${seconds} second(s).`,
+            flags: MessageFlags.Ephemeral
+        });
+    }
+
+    // Execute command
     try {
         logWithTimestamp('CMD', `${interaction.user.tag} : /${interaction.commandName}`);
         await command.execute(interaction);
     } catch (error) {
         // Log sanitized error info
-        log('ERROR', `Command execution failed: ${interaction.commandName}`, 2, error);
-        logWithTimestamp('ERROR', `Command execution failed: ${interaction.commandName}`, 2, error);
+        log('ERROR', `Command execution failed: ${interaction.commandName}`, 4, error);
 
         const errorMessage = {
             content: 'There was an error while executing this command!',
             flags: MessageFlags.Ephemeral
         };
 
-        if (interaction.replied || interaction.deferred) {
-            await interaction.followUp(errorMessage);
-        } else {
-            await interaction.reply(errorMessage);
+        try {
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp(errorMessage);
+            } else {
+                await interaction.reply(errorMessage);
+            }
+        } catch (replyError) {
+            log('WARN', 'Could not send error message to user', 4);
         }
     }
 });
@@ -202,41 +250,44 @@ async function handleButtonInteraction(interaction) {
     // Add any other game handlers here (i.e. connect 4, tic-tac-toe, etc.)
 }
 
-// Login to Discord
-client.login(process.env.DISCORD_BOT_TOKEN);
-
-// Add global rate limiter
-const globalMessageTracker = new Map(); // userId -> message count in window
-const GLOBAL_MESSAGE_LIMIT = 100; // per minute per user
-const GLOBAL_WINDOW = 60000; // 1 minute in ms
+// Message rate limiting (separate from command rate limiting)
+const messageRateLimits = new Map();
+const MESSAGE_LIMIT = 100;      // Max messages per window
+const MESSAGE_WINDOW = 60000;   // 1 minute window
 
 // XP gain on messages
 client.on('messageCreate', async message => {
     if (message.author.bot) return; // Ignore bot messages
     if (!message.guild) return; // Ignore DMs
 
-    // Check global rate limit
-    const userTracker = globalMessageTracker.get(message.author.id) || { count: 0, resetAt: Date.now() + GLOBAL_WINDOW };
+    // Check message rate limt
+    const userId = message.author.id;
+    const now = Date.now();
 
-    if (Date.now() > userTracker.resetAt) {
-        // Reset window
-        userTracker.count = 0;
-        userTracker.resetAt = Date.now() + GLOBAL_WINDOW;
+    let userLimit = messageRateLimits.get(userId);
+
+    if (!userLimit || now > userLimit.resetAt) {
+        userLimit = { count: 0, resetAt: now + MESSAGE_WINDOW };
     }
 
-    userTracker.count++;
+    if (Date.now() > userLimit.resetAt) {
+        // Reset window
+        userLimit.count = 0;
+        userLimit.resetAt = Date.now() + MESSAGE_WINDOW;
+    }
 
-    if (userTracker.count > GLOBAL_MESSAGE_LIMIT) {
+    userLimit.count++;
+    messageRateLimits.set(userId, userLimit);
+
+    if (userLimit.count > MESSAGE_LIMIT) {
         logWithTimestamp('WARN', `Rate limit exceeded for user: ${message.author.tag}`);
         return;
     }
 
-    globalMessageTracker.set(message.author.id, userTracker);
-
     // Get user data
     const userData = dbHelpers.getOrCreateUser(message.author.id, message.author.username);
 
-    // Check cooldown (1 minute between XP gains to prevent spam)
+    // Check cooldown (1 minute between XP gains)
     const currentTime = Math.floor(Date.now() / 1000);
     const cooldownTime = 60; // seconds
 
@@ -263,9 +314,21 @@ client.on('messageCreate', async message => {
     }
 });
 
+// Clean up message rate limits periodically
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, value] of messageRateLimits.entries()) {
+        if (now > value.resetAt) {
+            messageRateLimits.delete(key);
+        }
+    }
+}, 5 * 60 * 1000); // Every 5 minutes
+
 // ============================================
-// GRACEFUL SHUTDOWN WITH DATABASE CLOSE
+// LOGIN & ShUTDOWN
 // ============================================
+
+client.login(process.env.DISCORD_BOT_TOKEN);
 
 // Handle graceful shutdown on signals
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
