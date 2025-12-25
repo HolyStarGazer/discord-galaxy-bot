@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const version = require('../package.json').version;
 const { displayTableHeader, displayTableHeaderColored,  displayTableFooter, formatRow, formatUptime, log, logWithTimestamp } = require('./formatters');
-const { backupDatabase } = require('../config/backup');
+const { backupDatabase, getBackupStats } = require('../config/backup');
 
 let rl = null;
 let client = null;
@@ -22,7 +22,7 @@ async function redeployCommands() {
         deployProcess.on('close', (code) => {
             if (code === 0) {
                 log('OK', 'Commands deployed successfully', 4);
-                setTimeout(() => restartBot(), 1000);
+                restartBot();
                 resolve();
             } else {
                 log('ERROR', `Deploy failed with code ${code}`, 4);
@@ -38,7 +38,7 @@ async function redeployCommands() {
 }
 
 function setupInteractiveCommands(clientInstance, dbInstance) {
-    log('INFO', 'Initializing interactive command console...');
+    logWithTimestamp('INFO', 'Initializing interactive command console...');
 
     // Detect if running in VSCode integrated terminal
     if (process.env.TERM_PROGRAM === 'vscode') {
@@ -190,30 +190,7 @@ function restartBot() {
     }
 
     log('INFO', 'Starting new instance...', 4);
-
-    // Get the full path to the current script (index.js)
-    const scriptPath = path.resolve(process.argv[1]);
-
-    // Spawn new process
-    const args = process.argv.slice(1);
-    const child = spawn(process.argv[0], args, {
-        detached: true,
-        stdio: 'inherit',
-        cmd: process.cwd(),
-        env: process.env
-    });
-
-    // Windows unreference
-    if (process.platform === 'win32') {
-        child.unref();
-        
-        setTimeout(() => {
-            process.exit(0);
-        }, 1000);
-    } else {
-        child.unref();
-        process.exit(0);
-    }
+    setTimeout(() => process.exit(0), 1000);  // Code 0 = restart
 }
 
 function showBotStatus() {
@@ -256,14 +233,16 @@ function showBotStats() {
     console.log(formatRow('Memory (RSS):', `${(memUsage.rss / 1024 / 1024).toFixed(2)} MB`));
     console.log(formatRow('Memory (Heap):', `${(memUsage.heapUsed / 1024 / 1024).toFixed(2)} MB`));
 
-    try {
-        if (fs.existsSync(BACKUP_STATE_FILE)) {
-            const backupState = JSON.parse(fs.readFileSync(BACKUP_STATE_FILE, 'utf-8'));
-            const hoursAgo = ((Date.now() - backupState.lastBackup) / (1000 * 60 * 60)).toFixed(2);
-            console.log(formatRow('Last Backup:', `${hoursAgo} hours ago`));
+    const backupStats = getBackupStats();
+    if (backupStats) {
+        console.log(formatRow('Backups:', `${backupStats.count} files`));
+        console.log(formatRow('Backup Size:', `${backupStats.totalSizeMB} MB`));
+
+        if (backupStats.backups.length > 0) {
+            const latestBackup = backupStats.backups[0];
+            const hoursAgo = ((Date.now() - latestBackup.date) / (1000 * 60 * 60)).toFixed(2);
+            console.log(formatRow('Latest Backup:', `${hoursAgo} hours ago`));
         }
-    } catch (error) {
-        console.log(formatRow('Last Backup:', '\x1b[33mUnknown\x1b[0m'));
     }
 
     displayTableFooter();
@@ -271,6 +250,14 @@ function showBotStats() {
 
 function gracefulShutdown(signal) {
     logWithTimestamp('WARN', `Received ${signal}, shutting down gracefully...`);
+
+    // Close readline interface
+    if (rl) {
+        rl.close();
+        if (process.stdin.isTTY) {
+            process.stdin.setRawMode(false);
+        }
+    }
 
     // Close Discord client
     client.destroy();
@@ -282,7 +269,7 @@ function gracefulShutdown(signal) {
     }
 
     log('OK', 'Shutdown complete.', 4);
-    process.exit(0);
+    setTimeout(() => process.exit(1), 1000);  // Code 1 = shutdown
 }
 
 module.exports = {
