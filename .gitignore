@@ -38,18 +38,18 @@ desktop.ini     # Windows
 *.tmp
 *.temp
 
-# Shell scripts
-*.sh
-
 # Testing scripts
 test/
-
-# Autostart related files
-AUTOSTART_GUIDE.md
-autostart-manager.js
-autostart.js
-start-bot-restart.bat
 
 # SQLite CLI
 sqlite3.exe
 sqlite3
+
+# Cache files
+*cache.json
+*.cache
+node_modules/
+
+# Build
+dist/
+build/
