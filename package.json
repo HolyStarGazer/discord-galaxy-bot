@@ -4,7 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node start.js",
+    "dev": "node index.js",
+    "deploy": "node deploy-commands.js",
+    "deploy:force": "node deploy-commands.js --force",
+    "deploy:global": "node deploy-commands.js --global"
   },
   "repository": {
     "type": "git",
