@@ -102,10 +102,10 @@ module.exports = {
             await interaction.reply({ embeds: [embed] });
 
             // Log the action
-            console.log(`    [ADMIN] ${interaction.user.tag} modified points: ${targetUser.tag} ${amount >= 0 ? '+' : ''}${amount} points (${oldPoints} → ${newPoints})${reason ? ` | Reason: ${reason}` : ''}`);
-
+            log('ADMIN', `${interaction.user.tag} modified points: ${targetUser.tag} ${amount >= 0 ? '+' : ''}${amount} points (${oldPoints} → ${newPoints})`, 4);
+            log('INFO', `Reason: ${reason}`, 4);
         } catch (error) {
-            console.error('Error in addpoints command:', error);
+            log('ERROR', `'/setpoints' command failed`, 4, error);
             await interaction.reply({
                 content: 'An error occurred while modifying points.',
                 flags: MessageFlags.Ephemeral

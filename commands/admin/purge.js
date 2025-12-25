@@ -1,7 +1,5 @@
-// Removes the N most recent messages in the current channel
-console.error("Not implemented yet.");
-
 const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
+const { log, logWithTimestamp } = require('../../utils/formatters');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -82,7 +80,6 @@ module.exports = {
             const deletedMessages = await interaction.channel.bulkDelete(messagesToDelete, true);
             
             // Build response
-            const timestamp = new Date().toLocaleString();
             let response = `Successfully deleted **${deletedMessages.size}** message(s)`;
 
             if (targetUser) {
@@ -94,17 +91,17 @@ module.exports = {
             }
 
             // Log to console
-            console.log(`    [ADMIN] Purge: ${interaction.user.tag} deleted ${deletedMessages.size} messages in #${interaction.channel.name}`);
+            log('ADMIN', `${interaction.user.tag} deleted ${deletedMessages.size} messages in #${interaction.channel.name}`, 4);
             if (targetUser) {
-                console.log(`  \x1b[34m[INFO]\x1b[0m   Target user: ${targetUser.tag}`);
+                log('INFO', `Target user: ${targetUser.tag}`, 4);
             }
-            console.log(`  \x1b[34m[INFO]\x1b[0m   Reason: ${reason}`);
+            log('INFO', `Reason: ${reason}`, 4);
 
             // Send response
             await interaction.editReply({ content: response });
 
         } catch (error) {
-            console.error(`  \x1b[31m[ERROR]\x1b[0m Purge command failed:`, error);
+            log('ERROR', `'/purge' command failed`, 4, error);
 
             let errorMessage = 'Failed to delete messages.';
 

@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const { statements, dbHelpers, db } = require('../../config/database');
+const { log } = require('../../utils/formatters');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -36,7 +37,7 @@ module.exports = {
         // Get command options
         const targetUser = interaction.options.getUser('user');
         const newLevel = interaction.options.getInteger('level');
-        const reason = interaction.options.getString('reason');
+        const reason = interaction.options.getString('reason') || 'No reason provided';
 
         // Don't allow setting level for bots
         if (targetUser.bot) {
@@ -88,25 +89,21 @@ module.exports = {
                     value: `To reach level ${newLevel + 1}, ${targetUser.username} needs ${xpNeeded.toLocaleString()} more XP`,
                     inline: false
                 })
-                .setTimestamp()
-                .setFooter({ text: `Modified by ${interaction.user.tag}` });
-
-            // Add reason if provided
-            if (reason) {
-                embed.addFields({
-                    name: '📝 Reason',
+                .addFields({
+                    name: 'Reason',
                     value: reason,
                     inline: false
-                });
-            }
+                })
+                .setTimestamp()
+                .setFooter({ text: `Modified by ${interaction.user.tag}` });
 
             await interaction.reply({ embeds: [embed] });
 
             // Log the action
-            console.log(`    [ADMIN] ${interaction.user.tag} set level: ${targetUser.tag} Level ${oldLevel} → ${newLevel} (${oldXP} XP → ${newXP} XP)${reason ? ` | Reason: ${reason}` : ''}`);
-
+            log('ADMIN', `${interaction.user.tag} set level: ${targetUser.tag} Level ${oldLevel} → ${newLevel} (${oldXP} XP → ${newXP} XP)`, 4);
+            log('INFO', `Reason: ${reason}`, 4);
         } catch (error) {
-            console.error('Error in setlevel command:', error);
+            log('ERROR', `'/setlevel' command failed`, 4, error);
             await interaction.reply({
                 content: 'An error occurred while setting the level.',
                 flags: MessageFlags.Ephemeral

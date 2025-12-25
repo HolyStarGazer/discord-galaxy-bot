@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const { statements, dbHelpers } = require('../../config/database');
+const { log, logWithTimestamp } = require('../../utils/formatters');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -36,7 +37,7 @@ module.exports = {
         // Get command options
         const targetUser = interaction.options.getUser('user');
         const amount = interaction.options.getInteger('amount');
-        const reason = interaction.options.getString('reason');
+        const reason = interaction.options.getString('reason') || 'No reason provided';
 
         // Don't allow adding points to bots
         if (targetUser.bot) {
@@ -85,27 +86,23 @@ module.exports = {
                         name: 'Change', 
                         value: `**${amount >= 0 ? '+' : ''}${amount.toLocaleString()}** points`, 
                         inline: true 
+                    },
+                    {
+                        name: 'Reason',
+                        value: reason,
+                        inline: false
                     }
                 )
                 .setFooter({ text: `Modified by ${interaction.user.tag}` })
                 .setTimestamp();
 
-                // Add reason if provided
-            if (reason) {
-                embed.addFields({
-                    name: 'Reason',
-                    value: reason,
-                    inline: false
-                });
-            }
-
             await interaction.reply({ embeds: [embed] });
 
             // Log the action
-            console.log(`    [ADMIN] ${interaction.user.tag} modified points: ${targetUser.tag} ${amount >= 0 ? '+' : ''}${amount} points (${oldPoints} → ${newPoints})${reason ? ` | Reason: ${reason}` : ''}`);
-
+            log('ADMIN', `${interaction.user.tag} modified points: ${targetUser.tag} ${amount >= 0 ? '+' : ''}${amount} points (${oldPoints} → ${newPoints})`, 4);
+            log('INFO', `Reason: ${reason}`, 4);
         } catch (error) {
-            console.error('Error in addpoints command:', error);
+            log('ERROR', `'/addpoints' command failed`, 4, error);
             await interaction.reply({
                 content: 'An error occurred while modifying points.',
                 flags: MessageFlags.Ephemeral

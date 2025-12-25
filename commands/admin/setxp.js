@@ -35,7 +35,7 @@ module.exports = {
         // Get command options
         const targetUser = interaction.options.getUser('user');
         const newXP = interaction.options.getInteger('xp');
-        const reason = interaction.options.getString('reason');
+        const reason = interaction.options.getString('reason') || 'No reason provided';
 
         // Don't allow setting XP for bots
         if (targetUser.bot) {
@@ -80,25 +80,21 @@ module.exports = {
                     value: `To reach level ${newLevel + 1}, ${targetUser.username} needs ${xpNeeded.toLocaleString()} more XP`,
                     inline: false
                 })
-                .setTimestamp()
-                .setFooter({ text: `Modified by ${interaction.user.tag}` });
-
-            // Add reason if provided
-            if (reason) {
-                embed.addFields({
-                    name: '📝 Reason',
+                .addFields({
+                    name: 'Reason',
                     value: reason,
                     inline: false
                 })
-            }
+                .setTimestamp()
+                .setFooter({ text: `Modified by ${interaction.user.tag}` });
 
             await interaction.reply({ embeds: [embed] });
 
             // Log the action
-            console.log(`    [ADMIN] ${interaction.user.tag} set XP: ${targetUser.tag} ${newXP} XP (${oldXP} → ${newXP}), Level ${oldLevel} → ${newLevel})${reason ? ` | Reason: ${reason}` : ''}`);
-            
+            log('ADMIN', `${interaction.user.tag} set XP: ${targetUser.tag} ${newXP} XP (${oldXP} → ${newXP}), Level ${oldLevel} → ${newLevel})`, 4);
+            log('INFO', `Reason: ${reason}`, 4);
         } catch (error) {
-            console.error('Error in setxp command:', error);
+            log('ERROR', `'/setxp' command failed`, 4, error);
             await interaction.reply({
                 content: 'An error occurred while setting the XP.',
                 flags: MessageFlags.Ephemeral

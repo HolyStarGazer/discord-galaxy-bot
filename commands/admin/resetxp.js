@@ -28,7 +28,7 @@ module.exports = {
 
         // Get command options
         const targetUser = interaction.options.getUser('user');
-        const reason = interaction.options.getString('reason');
+        const reason = interaction.options.getString('reason') || 'No reason provided';
 
         // Don't allow resetting XP for bots
         if (targetUser.bot) {
@@ -45,7 +45,8 @@ module.exports = {
             
             statements.updateUserXP.run(0, 0, currentTime, userData.id);
 
-            console.log(`    [ADMIN] ${interaction.user.tag} reset XP for ${userData.username} to 0.${reason ? ` | Reason: ${reason}` : ''}`);
+            log('ADMIN', `${interaction.user.tag} reset XP for ${userData.username} to 0.`, 4);
+            log('INFO', `Reason: ${reason}`, 4);
 
             return interaction.reply({
                 content: `Successfully reset XP and level for ${userData.username}.`,
@@ -53,7 +54,7 @@ module.exports = {
             });
 
         } catch (error) {
-            console.error(`  \x1b[31m[ERROR]\x1b[0m ResetXP command failed:`, error);
+            log('ERROR', `'/resetxp' command failed`, 4, error);
             return interaction.reply({
                 content: 'An error occurred while resetting XP.',
                 flags: MessageFlags.Ephemeral

@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags, EmbedBuilder } = require('discord.js');
 const { statements, dbHelpers } = require('../../config/database');
+const { log, logWithTimestamp } = require('../../utils/formatters');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -36,7 +37,7 @@ module.exports = {
         // Get command options
         const targetUser = interaction.options.getUser('user');
         const amount = interaction.options.getInteger('amount');
-        const reason = interaction.options.getString('reason');
+        const reason = interaction.options.getString('reason') || 'No reason provided';
 
         // Don't allow adding XP to bots
         if (targetUser.bot) {
@@ -104,9 +105,10 @@ module.exports = {
             await interaction.reply({ embeds: [embed] });
 
             // Log the action
-            console.log(`    [ADMIN] ${interaction.user.tag} modified XP: ${targetUser.tag} ${amount > 0 ? '+' : ''}${amount} XP (${oldXP} → ${newXP}), Level ${oldLevel} → ${newLevel})${reason ? ` | Reason: ${reason}` : ''}`);
+            log('ADMIN', `${interaction.user.tag} modified XP: ${targetUser.tag} ${amount > 0 ? '+' : ''}${amount} XP (${oldXP} → ${newXP}), Level ${oldLevel} → ${newLevel})`, 4);
+            log('INFO', `Reason: ${reason}`, 4);
         } catch (error) {
-            console.error('Error in addxp command:', error);
+            log('ERROR', `'/addxp' command failed`, 4, error);
             await interaction.reply({
                 content: 'An error occurred while modifying XP.',
                 flags: MessageFlags.Ephemeral
