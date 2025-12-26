@@ -9,12 +9,103 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Planned
-- Blackjack game command
 - Tic-tac-toe game command
 - User profile customization
 - Server statistics dashboard
 - Achievement system
 - Economy system with virtual currency
+
+---
+
+## [0.8.0] - 2025-12-26
+
+### Added
+
+**Security**
+- Environment variable validation (`utils/env-validator.js`)
+    - Validates required env vars on startup
+    - Checks Discord token format
+    - Validates Discord ID formats (17-19 digits)
+- Command rate limiting (`utils/rate-limiter.js`)
+    - Per-command rate limits (configurable)
+    - Automatic cleanup of expired entries
+    - Blackjack: 3 per 30 seconds
+    - Daily: 1 per 5 seconds
+    - Default: 5 per 10 seconds
+- Enhanced input sanitization in database helpers
+    - `sanitizeString()` - Removes null bytes and control characters
+    - `sanitizeNumber()` - Validates numeric input with min/max
+
+**Performance**
+- Database indexes for common queries
+    - `idx_users_xp` - XP leaderboard queries
+    - `idx_users_points` - Points queries
+    - `idx_users_level` Level queries
+- User data caching wiht TTL (1 minute)
+    - `getCachedUser()` - Cached user lookups
+    - `invalidateUserCache()` - Cache invalidation on updates
+    - Automatic cache cleanup every 5 minutes
+
+**Stability**
+- Health monitoring system (`utils/health-monitor.js`)
+    - Checks Discord connection status
+    - Checks database connectivity
+    - Monitors memory usage (warns at 500MB+)
+    - Runs every 5 minutes
+- Global error handlers (`utils/error-handler.js`)
+    - Wrapped command execution with error recovery
+    - Graceful error messages to users
+- Crash loop detection in process manager
+    - Stops after 5 crashes within 60 seconds
+    - Displays remaining restart attempts
+    - Distinguishes intentional restarts from crashes
+
+**Process Management**
+- Cross-platform start script (`start.js`)
+    - Works on Windows, Mac, and Linux
+    - Automatic restart on crash
+    - Crash loop detection
+    - Clean shutdown handling
+- Platform-specific scripts
+    - `start-bot.bat` - Windows batch script with crash detection
+    - `start-bot.sh` - Unix/Mac shell script with crash detection
+- Exit code conventions: 
+    - Code 0: Intentional restart
+    - Code 1: Clean shutdown
+    - Code 2+: Crash (triggers restart)
+
+**Deployment**
+- Smart command deployment (`deploy-commands.js`)
+    - MD5 hash-based change detection
+    - Only deploys changed commands
+    - Caches command hashes in `command-cache.json`
+    - Shows detailed change summary (new/updated/removed)
+    - `--force` flag to deploy all commands
+    - `--global` flag for global deployment
+    - Silent database mode during deployment
+
+**Backup System Improvements**
+- WAL checkpoint before backup (ensures data integrity)
+- Backup verification (validates SQLite header)
+- Prevents WAL/SHM file creation on backup
+- `getBackupStats()` - View backup statistics
+- `restoreFromBackup()` - Restore from backup file
+
+### Changed
+- Separated message rate limiting from command rate limiting
+- Moved rate limit check to interactionCreate handler
+- Database logging respects silent mode (`process.env.DB_SILENT`)
+- Improved error messages
+- Interactive console now shows backup stats in `:stats`
+- Daily command rewards both points and XP
+
+### Technical Details
+- Rate limiter uses Map with automatic cleanup
+- Health checks run on 5-minute intervals
+- Cache TTL set to 60 seconds
+- Crash window set to 60 seconds with max 5 crashes
+- Message rate limit: 100 messages per minute per user
+- Backup verification checks SQLite header bytes
 
 ---
 
