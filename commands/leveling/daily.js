@@ -1,17 +1,17 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
-const { dbHelpers } = require('../../config/database');
+const { dbHelpers, statements } = require('../../config/database');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('daily')
-        .setDescription('Claim your daily XP bonus!'),
+        .setDescription('Claim your daily points and XP bonus!'),
 
     async execute(interaction) {
         const userId = interaction.user.id;
         const username = interaction.user.username;
 
         // Get or create user 
-        const userData = dbHelpers.getOrCreateUser(userId, username);
+        let userData = dbHelpers.getOrCreateUser(userId, username);
 
         // Check if user has claimed daily within the last 24 hours
         const now = Math.floor(Date.now() / 1000);
@@ -32,7 +32,6 @@ module.exports = {
                     value: `${hoursLeft}h ${minutesLeft}m`,
                     inline: false
                 })
-                .setFooter({ text : 'Come back tomorrow for more XP!' })
                 .setTimestamp();
             
             return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
@@ -40,17 +39,22 @@ module.exports = {
 
         // Calculate daily reward
         const baseReward = 100;
-        const bonusReward = Math.floor(Math.random() * 51); // Random bonus between 0-50
-        const dailyXP = baseReward + bonusReward;
+        const xpBonus = Math.floor(Math.random() * 51); // Random bonus between 0-50
+        const pointsBonus = Math.floor(Math.random() * 101); // Random bonus between 0-100
+
+        const dailyXP = baseReward + xpBonus;
+        const dailyPoints = baseReward + pointsBonus;
 
         // Give XP and update daily claim timestamp
-        const result = dbHelpers.claimDaily(userId, username, dailyXP);
+        const result = dbHelpers.claimDaily(userId, username, dailyXP, dailyPoints);
+
+        userData = dbHelpers.getOrCreateUser(userId, username); // Refresh user data
 
         // Create success embed
         const embed = new EmbedBuilder()
             .setColor('#4CAF50')
             .setTitle('🎁 Daily Reward Claimed!')
-            .setDescription(`You've received your daily XP bonus!`)
+            .setDescription(`You've received your daily bonus!`)
             .addFields(
                 {
                     name: 'XP Gained',
@@ -66,14 +70,23 @@ module.exports = {
                     name: 'Current Level',
                     value: `**Level ${result.newLevel}**`,
                     inline: true
+                },
+                {
+                    name: 'Points Gained',
+                    value: `**+${dailyPoints} Points**`,
+                    inline: true
+                },
+                {
+                    name: 'Total Points',
+                    value: `**${result.newPoints} Points**`,
+                    inline: true
                 }
             )
-            .setFooter({ text: 'Come back in 24 hours for another reward!' })
             .setTimestamp()
         
         // Add level up notification if applicable
         if (result.leveledUp) {
-            embed.setDescription(`🎉 **You've received your daily XP bonus AND leveled up!**`)
+            embed.setDescription(`🎉 **You've received your daily bonus AND leveled up!**`)
             .addFields({
                 name: 'Level Up!',
                 value: `Level ${result.oldLevel} -> **Level ${result.newLevel}**`,

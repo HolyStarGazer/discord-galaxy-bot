@@ -622,6 +622,7 @@ const dbHelpers = {
         // Use transaction to ensure atomic update
         const transaction = db.transaction(() => {
             const user = this.getOrCreateUser(userId, username);
+            const newPoints = user.points + pointsAmount;
             const newXP = user.xp + xpAmount;
             const newLevel = this.calculateLevel(newXP);
             const currentTime = Math.floor(Date.now() / 1000);
@@ -634,7 +635,8 @@ const dbHelpers = {
                 leveledUp: newLevel > user.level,
                 oldLevel: user.level,
                 newLevel: newLevel,
-                newXP: newXP
+                newXP: newXP,
+                newPoints: newPoints
             };
         });
 
