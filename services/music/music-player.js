@@ -14,6 +14,7 @@ const {
     NoSubscriberBehavior
 } = require('@discordjs/voice');
 
+const { Readable } = require('stream');
 const { queueManager } = require('./queue-manager');
 const { log, logWithTimestamp } = require('../../utils/formatters');
 
@@ -168,6 +169,22 @@ function setupConnectionEvents(ctx) {
 }
 
 /**
+ * Fetch audio stream from URL
+ * @param {string} url - The audio URL to fetch
+ * @returns {Promise<Readable>} Node.js readable stream
+ */
+async function fetchAudioStream(url) {
+    const response = await fetch(url);
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch audio: ${response.status} ${response.statusText}`);
+    }
+
+    // Convert Web ReadableStream to Node.js Readable stream
+    return Readable.fromWeb(response.body);
+}
+
+/**
  * Play a track
  * @param {string} guildId
  * @param {Object} track
@@ -179,8 +196,11 @@ async function playTrack(guildId, track) {
     }
 
     try {
-        // Create audio resource from stream URL
-        const resource = createAudioResource(track.streamUrl, {
+        // Fetch the audio stream from the URL
+        const audioStream = await fetchAudioStream(track.streamUrl);
+
+        // Create audio resource from the stream
+        const resource = createAudioResource(audioStream, {
             inlineVolume: true
         });
 
