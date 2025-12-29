@@ -10,7 +10,8 @@ const LOG_COLORS = {
     OK: '\x1b[32m',     // Green
     LOADED: '\x1b[32m',  // Green
     SUCCESS: '\x1b[32m', // Green
-    CMD: '\x1b[35m'     // Magenta
+    CMD: '\x1b[35m',     // Magenta
+    MUSIC: '\x1b[35m'  // Magenta
 }
 
 /**

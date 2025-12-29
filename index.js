@@ -15,7 +15,7 @@ const { initializeBackupSystem } = require('./config/backup');
 const { initializeGameCleanup } = require('./utils/game-cleanup');
 const { handleBlackjackButton } = require('./utils/blackjack-handler');
 
-// Setup global errro handlers early
+// Setup global error handlers early
 setupGlobalErrorHandlers();
 
 // ============================================
@@ -26,7 +26,8 @@ const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,           // Enables guild-related events
         GatewayIntentBits.GuildMessages,    // Enables message-related events in guilds
-        GatewayIntentBits.MessageContent    // Enables access to the content of messages
+        GatewayIntentBits.MessageContent,   // Enables access to the content of messages
+        GatewayIntentBits.GuildVoiceStates  // Enables voice channel events (for music)
     ]
 });
 
