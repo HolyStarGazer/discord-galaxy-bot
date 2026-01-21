@@ -6,6 +6,10 @@ const REQUIRED_ENV = [
     'DISCORD_GUILD_ID',
 ];
 
+const OPTIONAL_ENV = [
+    'WHEEL_OF_NAMES_API_KEY',
+]
+
 function validateEnv() {
     const missing = REQUIRED_ENV.filter((key) => !process.env[key]);
 
@@ -14,6 +18,12 @@ function validateEnv() {
         missing.forEach((key) => console.log(`    - ${key}`));
         log('INFO', 'Please check your .env file');
         process.exit(1);
+    }
+
+    const missingOptional = OPTIONAL_ENV.filter((key) => !process.env[key]);
+    if (missingOptional.length > 0) {
+        log('WARNING', 'Missing optional environment variables:');
+        missingOptional.forEach((key) => console.log(`    - ${key}`));
     }
 
     // Validate token format (basic check)
