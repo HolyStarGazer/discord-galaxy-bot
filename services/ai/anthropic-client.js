@@ -37,6 +37,12 @@ function getClient() {
         return null;
     }
 
+    // Debug: Check if Anthropic class is available
+    if (typeof Anthropic !== 'function') {
+        logWithTimestamp('ERROR', `Anthropic SDK not loaded properly. Type: ${typeof Anthropic}`);
+        return null;
+    }
+
     try {
         anthropicClient = new Anthropic({ apiKey });
         logWithTimestamp('OK', 'Anthropic client initialized');
