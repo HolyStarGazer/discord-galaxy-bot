@@ -3,9 +3,16 @@
  * Handles AI chat functionality with conversation history and rate limiting
  */
 
-const Anthropic = require('@anthropic-ai/sdk').default;
 const aiConfig = require('../../config/ai-config');
 const { logWithTimestamp } = require('../../utils/formatters');
+
+// Try to load Anthropic SDK (may not be installed)
+let Anthropic = null;
+try {
+    Anthropic = require('@anthropic-ai/sdk').default;
+} catch (error) {
+    logWithTimestamp('WARN', `Failed to load Anthropic SDK: ${error.message}`);
+}
 
 // Lazy-loaded Anthropic client
 let anthropicClient = null;
@@ -37,9 +44,9 @@ function getClient() {
         return null;
     }
 
-    // Debug: Check if Anthropic class is available
-    if (typeof Anthropic !== 'function') {
-        logWithTimestamp('ERROR', `Anthropic SDK not loaded properly. Type: ${typeof Anthropic}`);
+    // Check if Anthropic SDK is available
+    if (!Anthropic) {
+        logWithTimestamp('ERROR', 'Anthropic SDK not available. Run: npm install @anthropic-ai/sdk');
         return null;
     }
 
