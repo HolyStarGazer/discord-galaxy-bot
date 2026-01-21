@@ -209,7 +209,14 @@ async function chat({ userId, channelId, message, persona, model, temperature })
 
     // Get configuration
     const selectedModel = aiConfig.models[model] || aiConfig.models[aiConfig.defaultModel];
-    const selectedPersona = aiConfig.personas[persona] || aiConfig.personas[aiConfig.defaults.persona];
+    const personaPrompt = aiConfig.personas[persona] || aiConfig.personas[aiConfig.defaults.persona];
+
+    // Build system prompt with identity (if configured) + persona
+    const identityPrompt = aiConfig.identity?.prompt || '';
+    const systemPrompt = identityPrompt
+        ? `${identityPrompt}\n\nAdditionally: ${personaPrompt}`
+        : personaPrompt;
+
     const selectedTemperature = typeof temperature === 'number'
         ? Math.max(0, Math.min(1, temperature))
         : aiConfig.defaults.temperature;
@@ -220,11 +227,11 @@ async function chat({ userId, channelId, message, persona, model, temperature })
 
     // Estimate input tokens
     const historyText = history.map(m => m.content).join(' ');
-    const estimatedInput = estimateTokens(message + selectedPersona + historyText);
+    const estimatedInput = estimateTokens(message + systemPrompt + historyText);
 
     if (estimatedInput > aiConfig.tokens.maxInput) {
         // Trim history to fit within limits
-        while (history.length > 0 && estimateTokens(message + selectedPersona + history.map(m => m.content).join(' ')) > aiConfig.tokens.maxInput) {
+        while (history.length > 0 && estimateTokens(message + systemPrompt + history.map(m => m.content).join(' ')) > aiConfig.tokens.maxInput) {
             history.shift(); // Remove oldest messages
         }
     }
@@ -245,7 +252,7 @@ async function chat({ userId, channelId, message, persona, model, temperature })
             model: selectedModel,
             max_tokens: aiConfig.tokens.maxOutput,
             temperature: selectedTemperature,
-            system: selectedPersona,
+            system: systemPrompt,
             messages: history
         });
 
