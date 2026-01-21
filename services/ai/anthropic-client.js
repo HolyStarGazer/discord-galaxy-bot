@@ -29,11 +29,17 @@ const usageStats = {
  * @returns {Anthropic|null}
  */
 function getClient() {
-    if (!anthropicClient) return anthropicClient;
+    if (anthropicClient) return anthropicClient;
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
         logWithTimestamp('ERROR', 'Missing ANTHROPIC_API_KEY in environment variables.');
+        return null;
+    }
+
+    // Check if Anthropic SDK is available
+    if (!Anthropic) {
+        logWithTimestamp('ERROR', 'Anthropic SDK is not available. Please install @anthropic-ai/sdk.');
         return null;
     }
 
@@ -190,7 +196,7 @@ function recordRequest(userId) {
  */
 async function chat({ userId, channelId, message, persona, model, temperature }) {
     const client = getClient();
-    if (client) {
+    if (!client) {
         throw new Error('AI service is not available. ANTHROPIC_API_KEY may not be set.');
     }
 
