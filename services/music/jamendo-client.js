@@ -170,6 +170,28 @@ class JamendoClient {
     }
 
     /**
+     * Get lyrics for a track by ID
+     * @param {string} trackId - Jamendo track ID
+     * @returns {Promise<Object|null>} Track with lyrics or null
+     */
+    async getTrackLyrics(trackId) {
+        const data = await this.request('/tracks', {
+            id: trackId,
+            include: 'lyrics'
+        });
+
+        if (data.results.length === 0) return null;
+
+        const track = data.results[0];
+        return {
+            id: track.id,
+            title: track.name,
+            artist: track.artist_name,
+            lyrics: track.lyrics || null
+        };
+    }
+
+    /**
      * Format raw API tracks to consistent structure
      */
     formatTracks(rawTracks) {
